@@ -181,7 +181,7 @@ export default function AgentsPage() {
                     <div className="text-2xl">{getTemplateIcon(agent.templateType)}</div>
                     <div>
                       <div className="flex items-center gap-1.5">
-                        <h3 className="font-semibold text-white">{agent.name}</h3>
+                      <h3 className="font-semibold text-white">{agent.name}</h3>
                         {agent.verification?.selfxyzVerified && (
                           <span title="SelfClaw Verified">
                             <BadgeCheck className="w-4 h-4 text-emerald-400 flex-shrink-0" />

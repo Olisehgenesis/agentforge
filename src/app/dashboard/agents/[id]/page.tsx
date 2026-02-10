@@ -172,6 +172,7 @@ export default function AgentDetailPage() {
   const [verifyPolling, setVerifyPolling] = React.useState(false);
   const [verifyModalOpen, setVerifyModalOpen] = React.useState(false);
   const [showVerifyDebug, setShowVerifyDebug] = React.useState(false);
+  const [qrSessionExpired, setQrSessionExpired] = React.useState(false);
 
   // Fetch verification status
   const fetchVerification = React.useCallback(async () => {
@@ -222,6 +223,7 @@ export default function AgentDetailPage() {
   const handleStartVerification = async () => {
     if (!params.id) return;
     setVerifyLoading(true);
+    setQrSessionExpired(false);
     try {
       // Step 1: Start
       const startRes = await fetch(`/api/agents/${params.id}/verify`, {
@@ -265,6 +267,7 @@ export default function AgentDetailPage() {
     if (!params.id) return;
     setVerifyLoading(true);
     setVerifyPolling(false);
+    setQrSessionExpired(false);
     try {
       const res = await fetch(`/api/agents/${params.id}/verify`, {
         method: "POST",
@@ -1803,13 +1806,20 @@ export default function AgentDetailPage() {
                         fetchVerification();
                       }}
                       onError={(err) => {
-                        console.error("[SelfClaw] QR verification error:", err);
-                        setVerificationStatus((prev) => prev ? {
-                          ...prev,
-                          status: "failed",
-                          message: err.reason || err.error_code || "Verification failed",
-                        } : null);
-                        setVerifyPolling(false);
+                        console.warn("[SelfClaw] QR websocket error:", err);
+                        const reason = err?.reason || err?.error_code;
+                        if (reason) {
+                          // Real error with a message — show it
+                          setVerificationStatus((prev) => prev ? {
+                            ...prev,
+                            status: "failed",
+                            message: reason,
+                          } : null);
+                          setVerifyPolling(false);
+                        } else {
+                          // Empty {} = session expired on Self.xyz side
+                          setQrSessionExpired(true);
+                        }
                       }}
                       type="websocket"
                       size={280}
@@ -1862,12 +1872,34 @@ export default function AgentDetailPage() {
               )}
 
               {/* Status indicator */}
-              <div className="flex items-center justify-center gap-2 py-1">
-                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-violet-500/10 border border-violet-500/20">
-                  <Loader2 className="w-3 h-3 animate-spin text-violet-400" />
-                  <span className="text-xs text-violet-300 font-medium">Waiting for passport scan...</span>
+              {qrSessionExpired ? (
+                <div className="flex flex-col items-center gap-2 py-1">
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/20">
+                    <AlertCircle className="w-3 h-3 text-amber-400" />
+                    <span className="text-xs text-amber-300 font-medium">Session expired — generate a new QR</span>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setQrSessionExpired(false);
+                      handleRestartVerification();
+                    }}
+                    disabled={verifyLoading}
+                    className="text-xs border-amber-500/30 text-amber-400 hover:bg-amber-500/10"
+                  >
+                    {verifyLoading ? <Loader2 className="w-3 h-3 mr-1.5 animate-spin" /> : <RotateCcw className="w-3 h-3 mr-1.5" />}
+                    Generate Fresh QR
+                  </Button>
                 </div>
-              </div>
+              ) : (
+                <div className="flex items-center justify-center gap-2 py-1">
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-violet-500/10 border border-violet-500/20">
+                    <Loader2 className="w-3 h-3 animate-spin text-violet-400" />
+                    <span className="text-xs text-violet-300 font-medium">Waiting for passport scan...</span>
+                  </div>
+                </div>
+              )}
 
               {/* Instructions */}
               <div className="grid grid-cols-3 gap-2 text-center">

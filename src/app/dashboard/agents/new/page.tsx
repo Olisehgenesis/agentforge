@@ -229,7 +229,7 @@ export default function NewAgentPage() {
       setDeployStatus("done");
 
       // Navigate to agent detail page
-      router.push(`/dashboard/agents/${agent.id}`);
+        router.push(`/dashboard/agents/${agent.id}`);
     } catch (error) {
       console.error("Failed to deploy agent:", error);
       setDeployError(error instanceof Error ? error.message : "Deployment failed");
@@ -772,7 +772,7 @@ export default function NewAgentPage() {
 
                   {deployStatus === "idle" && (
                     <>
-                      <p className="text-sm text-slate-400 mb-4">
+                  <p className="text-sm text-slate-400 mb-4">
                         Your agent will be registered on-chain via the ERC-8004 IdentityRegistry.
                         This mints an identity NFT and requires a wallet signature to pay gas.
                       </p>
@@ -801,7 +801,7 @@ export default function NewAgentPage() {
                           </p>
                           <p className="text-xs text-slate-500 mt-1">
                             Contract: {erc8004Contracts.identityRegistry.slice(0, 18)}...
-                          </p>
+                  </p>
                         </div>
                       )}
                     </>
