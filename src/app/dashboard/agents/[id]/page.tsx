@@ -1760,56 +1760,82 @@ export default function AgentDetailPage() {
           {/* ── QR Ready / In Progress State ── */}
           {verificationStatus && !verificationStatus.verified &&
             ["qr_ready", "challenge_signed", "pending"].includes(verificationStatus.status) && (
-            <div className="space-y-4 text-center">
-              <div className="w-14 h-14 rounded-2xl bg-violet-500/20 flex items-center justify-center mx-auto animate-pulse">
-                <ScanLine className="w-7 h-7 text-violet-400" />
-              </div>
+            <div className="space-y-5 text-center">
+              {/* Title */}
               <div>
-                <h4 className="text-white font-semibold mb-1">Scan with Self App</h4>
-                <p className="text-xs text-slate-400 max-w-sm mx-auto">
-                  Open the Self app on your phone and scan the QR code. Tap your NFC passport when prompted.
+                <h4 className="text-white font-semibold text-lg mb-1">Scan to Verify</h4>
+                <p className="text-xs text-slate-400 max-w-xs mx-auto">
+                  Open the <span className="text-violet-300 font-medium">Self app</span> on your phone and scan this code
                 </p>
               </div>
 
-              {/* QR Code */}
-              {verificationStatus.selfAppConfig ? (
-                <div className="inline-block p-4 rounded-xl bg-white">
-                  <QRCodeSVG
-                    value={JSON.stringify(verificationStatus.selfAppConfig)}
-                    size={200}
-                    level="M"
-                    includeMargin={false}
-                    bgColor="#ffffff"
-                    fgColor="#000000"
-                  />
-                  <p className="text-[10px] text-slate-500 mt-2 text-center">
-                    Scan with the Self app
-                  </p>
-                </div>
-              ) : verificationStatus.sessionId ? (
-                <div className="inline-block p-4 rounded-xl bg-white">
-                  <QRCodeSVG
-                    value={`https://selfclaw.ai/verify/${verificationStatus.sessionId}`}
-                    size={200}
-                    level="M"
-                    includeMargin={false}
-                    bgColor="#ffffff"
-                    fgColor="#000000"
-                  />
-                  <p className="text-[10px] text-slate-500 mt-2 text-center">
-                    Scan with the Self app
-                  </p>
+              {/* QR Card */}
+              {(verificationStatus.selfAppConfig || verificationStatus.sessionId) ? (
+                <div className="relative mx-auto w-fit">
+                  {/* Animated glow border */}
+                  <div className="absolute -inset-1 rounded-2xl bg-gradient-to-r from-violet-500 via-purple-500 to-indigo-500 opacity-50 blur-md animate-pulse" />
+                  <div className="relative p-1 rounded-2xl bg-gradient-to-br from-violet-500 via-purple-500 to-indigo-500">
+                    <div className="rounded-xl bg-white p-5">
+                      <QRCodeSVG
+                        value={
+                          verificationStatus.selfAppConfig
+                            ? JSON.stringify(verificationStatus.selfAppConfig)
+                            : `https://selfclaw.ai/verify/${verificationStatus.sessionId}`
+                        }
+                        size={220}
+                        level="H"
+                        includeMargin
+                        bgColor="#ffffff"
+                        fgColor="#1e1b4b"
+                        imageSettings={{
+                          src: "",
+                          height: 0,
+                          width: 0,
+                          excavate: false,
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Self.xyz badge */}
+                  <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-slate-800 border border-violet-500/40 flex items-center gap-1.5 shadow-lg">
+                    <div className="w-2 h-2 rounded-full bg-violet-400 animate-pulse" />
+                    <span className="text-[10px] font-medium text-violet-300 whitespace-nowrap">Self.xyz × SelfClaw</span>
+                  </div>
                 </div>
               ) : (
-                <div className="inline-block p-5 rounded-xl bg-slate-800/50">
-                  <Loader2 className="w-10 h-10 text-violet-400 animate-spin mx-auto" />
-                  <p className="text-[10px] text-slate-400 mt-2">Loading QR...</p>
+                <div className="mx-auto w-fit">
+                  <div className="p-1 rounded-2xl bg-gradient-to-br from-violet-500/30 to-indigo-500/30">
+                    <div className="rounded-xl bg-slate-800/80 p-10 flex flex-col items-center gap-3">
+                      <Loader2 className="w-12 h-12 text-violet-400 animate-spin" />
+                      <p className="text-xs text-slate-400">Generating QR code...</p>
+                    </div>
+                  </div>
                 </div>
               )}
 
-              <div className="flex items-center justify-center gap-2 text-xs text-slate-500">
-                <Loader2 className="w-3 h-3 animate-spin text-violet-400" />
-                Waiting for verification...
+              {/* Status indicator */}
+              <div className="flex items-center justify-center gap-2 py-2">
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-violet-500/10 border border-violet-500/20">
+                  <Loader2 className="w-3 h-3 animate-spin text-violet-400" />
+                  <span className="text-xs text-violet-300 font-medium">Waiting for passport scan...</span>
+                </div>
+              </div>
+
+              {/* Instructions */}
+              <div className="grid grid-cols-3 gap-2 text-center">
+                <div className="p-2 rounded-lg bg-slate-800/30">
+                  <div className="text-base mb-0.5">📱</div>
+                  <p className="text-[10px] text-slate-500">Open Self app</p>
+                </div>
+                <div className="p-2 rounded-lg bg-slate-800/30">
+                  <div className="text-base mb-0.5">📷</div>
+                  <p className="text-[10px] text-slate-500">Scan QR code</p>
+                </div>
+                <div className="p-2 rounded-lg bg-slate-800/30">
+                  <div className="text-base mb-0.5">🛂</div>
+                  <p className="text-[10px] text-slate-500">Tap passport</p>
+                </div>
               </div>
 
               <Button
@@ -1817,9 +1843,10 @@ export default function AgentDetailPage() {
                 size="sm"
                 onClick={handleRestartVerification}
                 disabled={verifyLoading}
+                className="text-xs"
               >
-                <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
-                Restart
+                <RotateCcw className="w-3 h-3 mr-1.5" />
+                Generate New QR
               </Button>
             </div>
           )}
