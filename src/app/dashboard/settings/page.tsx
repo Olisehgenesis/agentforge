@@ -753,46 +753,46 @@ export default function SettingsPage() {
 
             return (
               <div key={p.key}>
-                <div className="flex items-center justify-between mb-1.5">
+            <div className="flex items-center justify-between mb-1.5">
                   <label className="text-sm font-medium text-slate-300">{p.label}</label>
                   {hasKey && (
-                    <div className="flex items-center gap-2">
-                      <Badge variant="default" className="text-[10px] bg-emerald-500/20 text-emerald-400 border-emerald-500/30">
-                        <CheckCircle className="w-3 h-3 mr-1" /> Configured
-                      </Badge>
-                      <button
+                <div className="flex items-center gap-2">
+                  <Badge variant="default" className="text-[10px] bg-emerald-500/20 text-emerald-400 border-emerald-500/30">
+                    <CheckCircle className="w-3 h-3 mr-1" /> Configured
+                  </Badge>
+                  <button
                         onClick={() => handleClearKey(p.key)}
-                        className="p-1 rounded hover:bg-red-500/10 transition-colors cursor-pointer"
-                        title="Remove key"
-                      >
-                        <Trash2 className="w-3.5 h-3.5 text-red-400" />
-                      </button>
-                    </div>
-                  )}
+                    className="p-1 rounded hover:bg-red-500/10 transition-colors cursor-pointer"
+                    title="Remove key"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 text-red-400" />
+                  </button>
                 </div>
+              )}
+            </div>
                 {hasKey && masked && (
-                  <div className="text-xs text-slate-500 font-mono mb-1.5 px-1">
+              <div className="text-xs text-slate-500 font-mono mb-1.5 px-1">
                     Current: {masked}
-                  </div>
-                )}
-                <Input
-                  type="password"
+              </div>
+            )}
+            <Input
+              type="password"
                   placeholder={hasKey ? "Enter new key to replace..." : info.keyPlaceholder}
                   value={keyInputs[p.key]}
                   onChange={(e) => setKeyInputs((prev) => ({ ...prev, [p.key]: e.target.value }))}
-                />
-                <div className="flex items-center gap-2 mt-1.5">
+            />
+            <div className="flex items-center gap-2 mt-1.5">
                   <Badge variant="secondary" className="text-[10px]">{p.badge}</Badge>
-                  <a
+              <a
                     href={info.keyUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1"
-                  >
-                    Get API Key <ExternalLink className="w-3 h-3" />
-                  </a>
-                </div>
-              </div>
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1"
+              >
+                Get API Key <ExternalLink className="w-3 h-3" />
+              </a>
+            </div>
+          </div>
             );
           })}
 
@@ -892,25 +892,25 @@ export default function SettingsPage() {
               <div key={provider}>
                 <div className="text-xs text-slate-500 uppercase tracking-wider mb-2 mt-3">
                   {info.label}
-                </div>
+              </div>
                 {models.map((model) => {
                   const isFree = model.name.toLowerCase().includes("free");
                   return (
                     <div key={model.id} className="flex items-center justify-between p-2 rounded-lg hover:bg-slate-800/30 transition-colors">
-                      <div>
-                        <span className="text-sm text-white">{model.name}</span>
-                      </div>
-                      <Badge
-                        variant="secondary"
-                        className={`text-[10px] ${
+              <div>
+                <span className="text-sm text-white">{model.name}</span>
+              </div>
+              <Badge
+                variant="secondary"
+                className={`text-[10px] ${
                           isFree
-                            ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-                            : "bg-slate-700 text-slate-400"
-                        }`}
-                      >
+                    ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                    : "bg-slate-700 text-slate-400"
+                }`}
+              >
                         {isFree ? "Free" : "Paid"}
-                      </Badge>
-                    </div>
+              </Badge>
+            </div>
                   );
                 })}
               </div>

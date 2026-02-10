@@ -237,6 +237,7 @@ export async function processMessage(
     where: { id: agentId },
     select: {
       id: true,
+      templateType: true,
       systemPrompt: true,
       llmProvider: true,
       llmModel: true,
@@ -287,6 +288,17 @@ Example — user says "send 5 cUSD to 0xDEF...456":
 `;
   } else {
     systemPrompt += `\n\n[WALLET CONTEXT] This agent does not have a wallet initialized yet. You CANNOT execute any transactions. Tell the user to click "Initialize Wallet" on the agent dashboard first.`;
+  }
+
+  // ─── Inject skill instructions ─────────────────────────────────────
+  // Each template has a set of skills (oracle reads, Mento quotes, balance checks, etc.)
+  const { generateSkillPrompt } = await import("@/lib/skills/registry");
+  const skillPrompt = generateSkillPrompt(
+    agent.templateType || "custom",
+    agent.agentWalletAddress
+  );
+  if (skillPrompt) {
+    systemPrompt += skillPrompt;
   }
 
   // Fetch the owner's API key for this provider
@@ -350,11 +362,11 @@ Example — user says "send 5 cUSD to 0xDEF...456":
   } else {
     // Non-OpenRouter or paid model — single attempt
     response = await chat(
-      messages,
+    messages,
       llmProvider as import("@/lib/types").LLMProvider,
-      llmModel,
-      apiKey
-    );
+    llmModel,
+    apiKey
+  );
   }
 
   // Log the interaction
@@ -372,11 +384,30 @@ Example — user says "send 5 cUSD to 0xDEF...456":
     },
   });
 
+  // ─── Skill Execution ─────────────────────────────────────────────────
+  // Execute any skill commands (oracle reads, Mento quotes, balance checks, etc.)
+  const { executeSkillCommands } = await import("@/lib/skills/registry");
+  const skillResult = await executeSkillCommands(response.content, {
+    agentId,
+    walletDerivationIndex: agent.walletDerivationIndex,
+    agentWalletAddress: agent.agentWalletAddress,
+  });
+
+  if (skillResult.executedCount > 0) {
+    await prisma.activityLog.create({
+      data: {
+        agentId,
+        type: "action",
+        message: `Executed ${skillResult.executedCount} skill(s): ${agent.templateType} template`,
+      },
+    });
+  }
+
   // ─── Transaction Execution ───────────────────────────────────────────
   // Check if the LLM response contains transaction commands and execute them
   const { executeTransactionsInResponse } = await import("@/lib/blockchain/executor");
   const txResult = await executeTransactionsInResponse(
-    response.content,
+    skillResult.text, // use skill-processed text
     agentId,
     agent.walletDerivationIndex
   );

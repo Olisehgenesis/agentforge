@@ -251,6 +251,76 @@ export default function NewAgentPage() {
               </Card>
             ))}
           </div>
+
+          {/* Skills preview for selected template */}
+          {selectedTemplate && (
+            <Card className="border-slate-700">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Zap className="w-4 h-4 text-amber-400" />
+                  <span className="text-sm font-semibold text-white">Agent Skills</span>
+                  <Badge variant="secondary" className="text-[10px]">OpenClaw-compatible</Badge>
+                </div>
+                <p className="text-xs text-slate-400 mb-3">
+                  Skills are auto-injected into the agent&apos;s system prompt. The agent invokes them via command tags in its responses to fetch real data and execute on-chain actions.
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {(() => {
+                    const TEMPLATE_SKILLS: Record<string, { name: string; icon: string; category: string }[]> = {
+                      payment: [
+                        { name: "Send CELO", icon: "💸", category: "transfer" },
+                        { name: "Send Tokens", icon: "💰", category: "transfer" },
+                        { name: "Check Balance", icon: "🔍", category: "data" },
+                        { name: "Query Rate", icon: "📊", category: "oracle" },
+                        { name: "Gas Price", icon: "⛽", category: "data" },
+                      ],
+                      trading: [
+                        { name: "Oracle Rates", icon: "📊", category: "oracle" },
+                        { name: "Mento Quote", icon: "💱", category: "mento" },
+                        { name: "Mento Swap", icon: "🔄", category: "mento" },
+                        { name: "Forex Analysis", icon: "📈", category: "forex" },
+                        { name: "Portfolio", icon: "💼", category: "forex" },
+                        { name: "Send CELO", icon: "💸", category: "transfer" },
+                        { name: "Balance Check", icon: "🔍", category: "data" },
+                        { name: "Gas Price", icon: "⛽", category: "data" },
+                      ],
+                      forex: [
+                        { name: "SortedOracles", icon: "📊", category: "oracle" },
+                        { name: "Mento Quote", icon: "💱", category: "mento" },
+                        { name: "Mento Swap", icon: "🔄", category: "mento" },
+                        { name: "Forex Analysis", icon: "📈", category: "forex" },
+                        { name: "Portfolio Tracker", icon: "💼", category: "forex" },
+                        { name: "All Rates", icon: "📉", category: "oracle" },
+                        { name: "Send CELO", icon: "💸", category: "transfer" },
+                        { name: "Send Tokens", icon: "💰", category: "transfer" },
+                        { name: "Balance Check", icon: "🔍", category: "data" },
+                        { name: "Gas Price", icon: "⛽", category: "data" },
+                      ],
+                      social: [
+                        { name: "Send CELO", icon: "💸", category: "transfer" },
+                        { name: "Send Tokens (Tips)", icon: "💰", category: "transfer" },
+                        { name: "Check Balance", icon: "🔍", category: "data" },
+                      ],
+                      custom: [
+                        { name: "Send CELO", icon: "💸", category: "transfer" },
+                        { name: "Send Tokens", icon: "💰", category: "transfer" },
+                        { name: "Oracle Rates", icon: "📊", category: "oracle" },
+                        { name: "Mento Quote", icon: "💱", category: "mento" },
+                        { name: "Balance Check", icon: "🔍", category: "data" },
+                        { name: "Gas Price", icon: "⛽", category: "data" },
+                      ],
+                    };
+                    const skills = TEMPLATE_SKILLS[selectedTemplate] || [];
+                    return skills.map((s) => (
+                      <Badge key={s.name} variant="outline" className="text-[10px] gap-1">
+                        {s.icon} {s.name}
+                      </Badge>
+                    ));
+                  })()}
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
       )}
 

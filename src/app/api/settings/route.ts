@@ -42,7 +42,7 @@ export async function GET(request: Request) {
         empty[field] = null;
         const hasKey = `has${field.charAt(0).toUpperCase()}${field.slice(1).replace("ApiKey", "")}Key`;
         empty[hasKey] = false;
-      }
+    }
       return NextResponse.json(empty);
     }
 
@@ -54,13 +54,13 @@ export async function GET(request: Request) {
       let masked: string | null = null;
 
       if (encrypted) {
-        try {
+      try {
           const decrypted = decrypt(encrypted);
           masked = maskApiKey(decrypted);
-        } catch {
+      } catch {
           masked = "••••••••(corrupted)";
-        }
       }
+    }
 
       result[field] = masked;
 
@@ -114,9 +114,9 @@ export async function POST(request: Request) {
     for (const field of API_KEY_FIELDS) {
       const value = keys[field];
       if (value !== undefined) {
-        // Empty string = clear the key, non-empty = encrypt and store
+      // Empty string = clear the key, non-empty = encrypt and store
         updateData[field] = value ? encrypt(value) : null;
-      }
+    }
     }
 
     // Only update if there's something to update

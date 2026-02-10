@@ -47,6 +47,7 @@ export function getTemplateIcon(type: string): string {
   const icons: Record<string, string> = {
     payment: "💳",
     trading: "📈",
+    forex: "💹",
     social: "💬",
     custom: "🔧",
   };

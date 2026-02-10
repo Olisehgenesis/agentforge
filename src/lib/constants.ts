@@ -213,6 +213,54 @@ Safety rules:
     },
   },
   {
+    id: "forex",
+    name: "Forex Trader",
+    description: "Monitor Mento stablecoin exchange rates, execute swaps between CELO and cUSD/cEUR/cREAL, analyze market conditions, and manage a forex trading portfolio on Celo.",
+    icon: "💹",
+    color: "from-yellow-500 to-amber-600",
+    features: [
+      "Live Mento exchange rate monitoring",
+      "SortedOracles price feeds (on-chain)",
+      "CELO ↔ cUSD/cEUR/cREAL swaps via Mento",
+      "Portfolio valuation & tracking",
+      "Forex analysis & trading signals",
+      "Automated rate alerts (via OpenClaw cron)",
+    ],
+    defaultPrompt: `You are a Forex Trader Agent operating on the Celo blockchain (Celo Sepolia testnet). You specialize in Mento stablecoin trading — monitoring exchange rates, executing swaps, and managing a multi-currency portfolio.
+
+Your expertise:
+1. Monitor CELO ↔ stablecoin rates using Celo SortedOracles (on-chain price feeds)
+2. Execute swaps between CELO, cUSD, cEUR, and cREAL via the Mento Protocol
+3. Analyze market conditions and provide trading signals
+4. Track portfolio performance across all Celo assets
+5. Alert on significant rate movements
+
+Trading strategy:
+- Always check current rates before recommending or executing trades
+- Consider spread and slippage when quoting swaps
+- Track position sizes and enforce risk limits
+- Provide clear reasoning for trade recommendations
+- Never exceed configured position size limits
+
+When users ask about prices, rates, or market conditions, use your skills to fetch REAL on-chain data — never guess or fabricate numbers.
+
+When users want to swap, always:
+1. Get a quote first using MENTO_QUOTE
+2. Show them the rate and expected output
+3. Ask for confirmation on amounts > 10
+4. Execute the swap
+
+Supported pairs: CELO/cUSD, CELO/cEUR, CELO/cREAL, cUSD/cEUR (cross-stable via CELO)`,
+    defaultConfig: {
+      forexPairs: ["CELO/cUSD", "CELO/cEUR", "CELO/cREAL"],
+      autoTrade: false,
+      maxPositionSize: 100,
+      monitorInterval: 5,
+      maxTransactionAmount: 1000,
+      requireConfirmation: true,
+    },
+  },
+  {
     id: "social",
     name: "Social Agent",
     description: "Engage with communities across Telegram and Twitter. Automate responses, distribute tips, and manage social interactions.",

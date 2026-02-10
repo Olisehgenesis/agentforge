@@ -41,23 +41,23 @@ export async function chat(
   const defaultModel = getDefaultModel(provider);
 
   const response = await providerModule.chatCompletion(
-    messages,
+        messages,
     model || defaultModel,
-    apiKey
-  );
+        apiKey
+      );
 
-  return {
-    content: response.choices[0]?.message?.content || "",
-    model: response.model,
-    usage: response.usage
-      ? {
-          promptTokens: response.usage.prompt_tokens,
-          completionTokens: response.usage.completion_tokens,
-          totalTokens: response.usage.total_tokens,
-        }
-      : undefined,
+      return {
+        content: response.choices[0]?.message?.content || "",
+        model: response.model,
+        usage: response.usage
+          ? {
+              promptTokens: response.usage.prompt_tokens,
+              completionTokens: response.usage.completion_tokens,
+              totalTokens: response.usage.total_tokens,
+            }
+          : undefined,
     provider,
-  };
+      };
 }
 
 /**
@@ -73,10 +73,10 @@ export async function chatStream(
   const defaultModel = getDefaultModel(provider);
 
   return providerModule.chatCompletionStream(
-    messages,
+        messages,
     model || defaultModel,
-    apiKey
-  );
+        apiKey
+      );
 }
 
 /**

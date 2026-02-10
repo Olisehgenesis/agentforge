@@ -60,6 +60,7 @@ export interface OpenClawAgentConfig {
     contractInteraction: boolean;
     customEndpoints: string[];
   };
+  skills: string[]; // skill IDs enabled for this agent
   safety: {
     spendingLimit: number;
     maxTransactionAmount: number;
@@ -129,6 +130,7 @@ export function generateOpenClawConfig(params: GenerateConfigParams): OpenClawAg
       contractInteraction: false,
       customEndpoints: [],
     },
+    skills: [], // populated below from template
     safety: {
       spendingLimit,
       maxTransactionAmount: (configuration.maxTransactionAmount as number) || 1000,
@@ -137,17 +139,26 @@ export function generateOpenClawConfig(params: GenerateConfigParams): OpenClawAg
     },
   };
 
-  // Template-specific tool configuration
+  // Template-specific tool and skill configuration
   switch (templateType) {
     case "payment":
       config.tools.celoTransfer = true;
       config.tools.priceQuery = true;
+      config.skills = ["send_celo", "send_token", "check_balance", "query_rate", "gas_price"];
       break;
 
     case "trading":
       config.tools.priceQuery = true;
       config.tools.celoTransfer = true;
       config.tools.contractInteraction = true;
+      config.skills = ["send_celo", "send_token", "check_balance", "query_rate", "query_all_rates", "mento_quote", "mento_swap", "gas_price", "forex_analysis", "portfolio_status"];
+      break;
+
+    case "forex":
+      config.tools.priceQuery = true;
+      config.tools.celoTransfer = true;
+      config.tools.contractInteraction = true;
+      config.skills = ["send_celo", "send_token", "check_balance", "query_rate", "query_all_rates", "mento_quote", "mento_swap", "gas_price", "forex_analysis", "portfolio_status"];
       break;
 
     case "social":
@@ -160,12 +171,14 @@ export function generateOpenClawConfig(params: GenerateConfigParams): OpenClawAg
         enabled: false,
       };
       config.tools.celoTransfer = true; // For tips
+      config.skills = ["send_celo", "send_token", "check_balance"];
       break;
 
     case "custom":
       config.tools.celoTransfer = true;
       config.tools.priceQuery = true;
       config.tools.contractInteraction = true;
+      config.skills = ["send_celo", "send_token", "check_balance", "query_rate", "query_all_rates", "mento_quote", "gas_price"];
       if (Array.isArray(configuration.customEndpoints)) {
         config.tools.customEndpoints = configuration.customEndpoints as string[];
       }

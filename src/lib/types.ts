@@ -1,4 +1,4 @@
-export type AgentTemplate = "payment" | "trading" | "social" | "custom";
+export type AgentTemplate = "payment" | "trading" | "forex" | "social" | "custom";
 
 export type AgentStatus = "draft" | "deploying" | "active" | "paused" | "stopped";
 
@@ -26,6 +26,12 @@ export interface AgentConfig {
   autoReply?: boolean;
   tipAmount?: number;
   
+  // Forex Trader Agent
+  forexPairs?: string[];
+  autoTrade?: boolean;
+  maxPositionSize?: number;
+  monitorInterval?: number; // minutes between rate checks
+
   // Custom Agent
   tools?: string[];
   customEndpoints?: string[];
