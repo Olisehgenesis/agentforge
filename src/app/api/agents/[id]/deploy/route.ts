@@ -1,8 +1,17 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { generateRegistrationJSON } from "@/lib/blockchain/erc8004";
 
-// POST /api/agents/:id/deploy - Activate an agent
+/**
+ * POST /api/agents/[id]/deploy
+ *
+ * Two modes:
+ * 1. Activate agent (no body or { action: "activate" })
+ *    → Sets agent status to "active"
+ *
+ * 2. Record on-chain ERC-8004 registration (body: { action: "register", ... })
+ *    → Called AFTER the client-side wagmi tx succeeds
+ *    → Stores the real on-chain agentId, txHash, chainId, and URI
+ */
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -19,70 +28,115 @@ export async function POST(
       return NextResponse.json({ error: "Agent not found" }, { status: 404 });
     }
 
-    if (agent.status === "active") {
-      return NextResponse.json({ error: "Agent is already active" }, { status: 400 });
+    // Parse body (may be empty for simple activation)
+    let body: Record<string, unknown> = {};
+    try {
+      body = await request.json();
+    } catch {
+      // No body = simple activation
     }
 
-    // Generate ERC-8004 registration JSON
-    const registrationJSON = generateRegistrationJSON(
-      agent.name,
-      agent.description || "",
-      "TBD",
-      `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/api/agents/${agent.id}`
-    );
+    const action = (body.action as string) || "activate";
 
-    // Log deployment start
-    await prisma.activityLog.create({
-      data: {
-        agentId: agent.id,
-        type: "info",
-        message: "Deployment initiated — activating agent runtime & ERC-8004 registration",
-        metadata: JSON.stringify(registrationJSON),
-      },
-    });
+    // ── Mode 1: Simple activation ──────────────────────────────────────────
+    if (action === "activate") {
+      if (agent.status === "active") {
+        return NextResponse.json({ error: "Agent is already active" }, { status: 400 });
+      }
 
-    // Activate agent
-    await prisma.agent.update({
-      where: { id },
-      data: {
-        status: "active",
-        deployedAt: new Date(),
-      },
-    });
+      await prisma.agent.update({
+        where: { id },
+        data: {
+          status: "active",
+          deployedAt: agent.deployedAt || new Date(),
+        },
+      });
 
-    // Generate ERC-8004 on-chain registration data
-    const erc8004AgentId = agent.erc8004AgentId || Math.floor(Math.random() * 10000).toString();
-    const agentURI = agent.erc8004URI || `ipfs://bafkrei${agent.id.replace(/-/g, "").slice(0, 20)}`;
+      await prisma.activityLog.create({
+        data: {
+          agentId: id,
+          type: "info",
+          message: "Agent activated",
+        },
+      });
 
-    // Update agent with ERC-8004 data
-    await prisma.agent.update({
-      where: { id },
-      data: {
+      return NextResponse.json({ success: true, message: "Agent activated" });
+    }
+
+    // ── Mode 2: Record on-chain ERC-8004 registration ──────────────────────
+    if (action === "register") {
+      const {
         erc8004AgentId,
-        erc8004URI: agentURI,
-      },
-    });
+        erc8004TxHash,
+        erc8004ChainId,
+        erc8004URI,
+      } = body as {
+        erc8004AgentId: string;
+        erc8004TxHash: string;
+        erc8004ChainId: number;
+        erc8004URI: string;
+      };
 
-    // Log ERC-8004 registration
-    await prisma.activityLog.create({
-      data: {
-        agentId: agent.id,
-        type: "action",
-        message: `Agent activated with ERC-8004 agentId #${erc8004AgentId}`,
-      },
-    });
+      if (!erc8004AgentId || !erc8004TxHash) {
+        return NextResponse.json(
+          { error: "erc8004AgentId and erc8004TxHash are required" },
+          { status: 400 }
+        );
+      }
 
-    return NextResponse.json({
-      success: true,
-      message: "Agent deployed with ERC-8004 registration",
-      registrationJSON,
-      erc8004: {
-        agentId: erc8004AgentId,
-        agentURI,
-      },
-    });
+      // Update agent with real on-chain data
+      await prisma.agent.update({
+        where: { id },
+        data: {
+          erc8004AgentId,
+          erc8004TxHash,
+          erc8004ChainId: erc8004ChainId || null,
+          erc8004URI: erc8004URI || null,
+          status: "active",
+          deployedAt: agent.deployedAt || new Date(),
+        },
+      });
+
+      // Log the on-chain registration
+      await prisma.activityLog.create({
+        data: {
+          agentId: id,
+          type: "action",
+          message: `Registered on ERC-8004 IdentityRegistry — agentId #${erc8004AgentId}`,
+          metadata: JSON.stringify({
+            txHash: erc8004TxHash,
+            chainId: erc8004ChainId,
+            agentURI: erc8004URI,
+          }),
+        },
+      });
+
+      // Record the registration transaction
+      await prisma.transaction.create({
+        data: {
+          agentId: id,
+          type: "register",
+          status: "confirmed",
+          txHash: erc8004TxHash,
+          description: `ERC-8004 IdentityRegistry registration (agentId #${erc8004AgentId})`,
+        },
+      });
+
+      return NextResponse.json({
+        success: true,
+        message: "On-chain registration recorded",
+        erc8004: {
+          agentId: erc8004AgentId,
+          txHash: erc8004TxHash,
+          chainId: erc8004ChainId,
+          agentURI: erc8004URI,
+        },
+      });
+    }
+
+    return NextResponse.json({ error: `Unknown action: ${action}` }, { status: 400 });
   } catch (error) {
-    console.error("Failed to deploy agent:", error);
+    console.error("Failed to deploy/register agent:", error);
     return NextResponse.json({ error: "Failed to deploy agent" }, { status: 500 });
   }
 }

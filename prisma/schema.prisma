@@ -51,9 +51,11 @@ model Agent {
   // Legacy OpenClaw (optional, kept for backward compat)
   openclawAgentId       String?
   
-  // ERC-8004
-  erc8004AgentId  String?
-  erc8004URI      String?
+  // ERC-8004 (on-chain identity)
+  erc8004AgentId  String?  // On-chain NFT tokenId from IdentityRegistry
+  erc8004URI      String?  // Registration JSON URL set on-chain
+  erc8004TxHash   String?  // Registration tx hash for verification
+  erc8004ChainId  Int?     // Chain where agent is registered (42220 = Celo)
   reputationScore Float    @default(0.0)
   
   // Configuration (JSON stored as string)

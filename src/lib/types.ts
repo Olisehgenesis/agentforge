@@ -62,6 +62,8 @@ export interface Agent {
   agentWalletAddress: string | null;
   erc8004AgentId: string | null;
   erc8004URI: string | null;
+  erc8004TxHash: string | null;
+  erc8004ChainId: number | null;
   reputationScore: number;
   configuration: string | null;
   ownerId: string;
@@ -106,20 +108,31 @@ export interface TemplateInfo {
   defaultConfig: AgentConfig;
 }
 
+/**
+ * ERC-8004 Agent Registration File shape.
+ * The `agentURI` on the IdentityRegistry resolves to this JSON.
+ *
+ * @see https://github.com/erc-8004/erc-8004-contracts#agent-registration-file-recommended-shape
+ */
 export interface ERC8004Registration {
-  type: string;
+  type: string; // "agent-registration-v1"
   name: string;
   description: string;
   image: string;
   services: {
     type: string;
     url: string;
+    description?: string;
   }[];
   registrations: {
-    agentRegistry: string;
-    agentId: string;
+    agentRegistry: string; // e.g. "eip155:42220:0x8004..."
+    agentId: string;       // on-chain token ID or "pending"
   }[];
   supportedTrust: string[];
+  // Extended AgentForge fields
+  agentWallet?: string;
+  chainId?: number;
+  framework?: string;
 }
 
 export interface DashboardStats {

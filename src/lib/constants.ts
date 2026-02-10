@@ -1,20 +1,43 @@
 import { type TemplateInfo } from "./types";
 
-// ─── Celo Sepolia Testnet ────────────────────────────────────────────────────
-// All contract addresses & chain IDs point to the testnet for now.
-// Switch to mainnet values when ready for production.
-
-// ERC-8004 Contract Addresses on Celo Sepolia Testnet
-export const ERC8004_IDENTITY_REGISTRY = "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432" as const;
-export const ERC8004_REPUTATION_REGISTRY = "0x8004BAa17C55a88189AE136b182e5fdA19dE9b63" as const;
-
-// Using Celo Sepolia testnet
-export const ACTIVE_CHAIN_ID = 11142220; // Celo Sepolia
-export const BLOCK_EXPLORER = "https://celo-sepolia.blockscout.com";
+// ─── Chain Configuration ─────────────────────────────────────────────────────
 
 // Celo Chain IDs
 export const CELO_CHAIN_ID = 42220;
 export const CELO_SEPOLIA_CHAIN_ID = 11142220;
+
+// Active chain — Celo Sepolia for development, Celo Mainnet for production
+export const ACTIVE_CHAIN_ID = 11142220; // Celo Sepolia
+
+// Block explorers per chain
+export const BLOCK_EXPLORERS: Record<number, string> = {
+  42220: "https://celoscan.io",
+  11142220: "https://celo-sepolia.blockscout.com",
+} as const;
+export const BLOCK_EXPLORER = BLOCK_EXPLORERS[ACTIVE_CHAIN_ID] || "https://celo-sepolia.blockscout.com";
+
+// ERC-8004 Contract Addresses per chain
+// Canonical deployments from https://github.com/erc-8004/erc-8004-contracts
+export const ERC8004_CONTRACTS: Record<number, { identity: string; reputation: string }> = {
+  // Celo Mainnet — official deployment
+  42220: {
+    identity: "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432",
+    reputation: "0x8004BAa17C55a88189AE136b182e5fdA19dE9b63",
+  },
+  // BSC Testnet — official deployment
+  97: {
+    identity: "0x8004A818BFB912233c491871b3d84c89A494BD9e",
+    reputation: "0x8004B663056A597Dffe9eCcC1965A193B7388713",
+  },
+  // Celo Sepolia — not yet deployed by ERC-8004 team
+  // To deploy yourself, clone https://github.com/erc-8004/erc-8004-contracts and run:
+  //   npx hardhat ignition deploy ignition/modules/Deploy.ts --network celoSepolia
+  // Then set env vars: NEXT_PUBLIC_ERC8004_IDENTITY, NEXT_PUBLIC_ERC8004_REPUTATION
+} as const;
+
+// Legacy aliases (for backward compatibility)
+export const ERC8004_IDENTITY_REGISTRY = ERC8004_CONTRACTS[42220]?.identity ?? "" as string;
+export const ERC8004_REPUTATION_REGISTRY = ERC8004_CONTRACTS[42220]?.reputation ?? "" as string;
 
 // Stablecoins on Celo Sepolia Testnet
 // Note: Native CELO uses the zero address on Celo Sepolia

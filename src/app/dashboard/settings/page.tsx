@@ -21,7 +21,7 @@ import {
   MessageSquare,
 } from "lucide-react";
 import { formatAddress } from "@/lib/utils";
-import { ERC8004_IDENTITY_REGISTRY, ERC8004_REPUTATION_REGISTRY, BLOCK_EXPLORER, LLM_MODELS, LLM_PROVIDER_INFO } from "@/lib/constants";
+import { ERC8004_CONTRACTS, BLOCK_EXPLORER, BLOCK_EXPLORERS, LLM_MODELS, LLM_PROVIDER_INFO } from "@/lib/constants";
 import type { LLMProvider } from "@/lib/types";
 
 // Provider config for the settings page
@@ -485,37 +485,52 @@ export default function SettingsPage() {
             <Globe className="w-5 h-5 text-cyan-400" />
             <CardTitle>ERC-8004 Contracts</CardTitle>
           </div>
-          <CardDescription>On-chain registry addresses on Celo Sepolia</CardDescription>
+          <CardDescription>
+            On-chain agent registries — <a href="https://github.com/erc-8004/erc-8004-contracts" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300">spec</a>
+          </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="p-3 rounded-lg bg-slate-800/50">
-            <div className="text-xs text-slate-500 mb-1">IdentityRegistry</div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-mono text-white">{formatAddress(ERC8004_IDENTITY_REGISTRY)}</span>
-              <a
-                href={`${BLOCK_EXPLORER}/address/${ERC8004_IDENTITY_REGISTRY}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-slate-400 hover:text-emerald-400 transition-colors"
-              >
-                <ExternalLink className="w-4 h-4" />
-              </a>
-            </div>
-          </div>
-          <div className="p-3 rounded-lg bg-slate-800/50">
-            <div className="text-xs text-slate-500 mb-1">ReputationRegistry</div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-mono text-white">{formatAddress(ERC8004_REPUTATION_REGISTRY)}</span>
-              <a
-                href={`${BLOCK_EXPLORER}/address/${ERC8004_REPUTATION_REGISTRY}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-slate-400 hover:text-emerald-400 transition-colors"
-              >
-                <ExternalLink className="w-4 h-4" />
-              </a>
-            </div>
-          </div>
+        <CardContent className="space-y-4">
+          {Object.entries(ERC8004_CONTRACTS).map(([chainIdStr, addrs]) => {
+            const cid = Number(chainIdStr);
+            const chainName = cid === 42220 ? "Celo Mainnet" : cid === 97 ? "BSC Testnet" : `Chain ${cid}`;
+            const explorer = BLOCK_EXPLORERS[cid] || BLOCK_EXPLORER;
+            return (
+              <div key={cid} className="space-y-2">
+                <div className="text-xs text-slate-400 font-medium">{chainName}</div>
+                <div className="p-3 rounded-lg bg-slate-800/50">
+                  <div className="text-xs text-slate-500 mb-1">IdentityRegistry</div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-mono text-white">{formatAddress(addrs.identity)}</span>
+                    <a
+                      href={`${explorer}/address/${addrs.identity}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-slate-400 hover:text-emerald-400 transition-colors"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                    </a>
+                  </div>
+                </div>
+                <div className="p-3 rounded-lg bg-slate-800/50">
+                  <div className="text-xs text-slate-500 mb-1">ReputationRegistry</div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-mono text-white">{formatAddress(addrs.reputation)}</span>
+                    <a
+                      href={`${explorer}/address/${addrs.reputation}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-slate-400 hover:text-emerald-400 transition-colors"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                    </a>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+          <p className="text-[10px] text-slate-600 mt-2">
+            Override for testnet: set NEXT_PUBLIC_ERC8004_IDENTITY and NEXT_PUBLIC_ERC8004_REPUTATION env vars.
+          </p>
         </CardContent>
       </Card>
     </div>

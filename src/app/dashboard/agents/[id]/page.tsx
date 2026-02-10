@@ -32,8 +32,11 @@ import {
   Wallet,
   RefreshCw,
 } from "lucide-react";
+import { useAccount } from "wagmi";
+import { type Address } from "viem";
 import { getTemplateIcon, getStatusColor, formatAddress, formatCurrency, formatDate } from "@/lib/utils";
-import { BLOCK_EXPLORER } from "@/lib/constants";
+import { BLOCK_EXPLORER, BLOCK_EXPLORERS } from "@/lib/constants";
+import { useERC8004 } from "@/hooks/useERC8004";
 
 interface AgentData {
   id: string;
@@ -49,6 +52,8 @@ interface AgentData {
   agentWalletAddress: string | null;
   erc8004AgentId: string | null;
   erc8004URI: string | null;
+  erc8004TxHash: string | null;
+  erc8004ChainId: number | null;
   reputationScore: number;
   createdAt: string;
   deployedAt: string | null;
@@ -128,6 +133,25 @@ export default function AgentDetailPage() {
   const [telegramToken, setTelegramToken] = React.useState("");
   const [telegramConnecting, setTelegramConnecting] = React.useState(false);
 
+  // ERC-8004 on-chain registration
+  const { address: userAddress } = useAccount();
+  const {
+    register: registerOnChain,
+    checkDeployed,
+    isRegistering,
+    error: erc8004Error,
+    clearError: clearERC8004Error,
+    chainId: currentChainId,
+    contractAddresses: erc8004Contracts,
+    blockExplorerUrl,
+  } = useERC8004();
+  const [erc8004Deployed, setErc8004Deployed] = React.useState<boolean | null>(null);
+  const [registrationResult, setRegistrationResult] = React.useState<{
+    agentId: string;
+    txHash: string;
+    explorerUrl: string;
+  } | null>(null);
+
   // Fetch agent data from API
   React.useEffect(() => {
     async function fetchAgent() {
@@ -169,6 +193,39 @@ export default function AgentDetailPage() {
       fetchBalance();
     }
   }, [agent?.agentWalletAddress, fetchBalance]);
+
+  // Check if ERC-8004 contracts are deployed on current chain
+  React.useEffect(() => {
+    checkDeployed().then(setErc8004Deployed);
+  }, [checkDeployed, currentChainId]);
+
+  // Handle on-chain registration
+  const handleRegisterOnChain = async () => {
+    if (!agent || !userAddress) return;
+    clearERC8004Error();
+    setRegistrationResult(null);
+
+    try {
+      const result = await registerOnChain(
+        userAddress as Address,
+        agent.id
+      );
+
+      setRegistrationResult({
+        agentId: result.agentId,
+        txHash: result.txHash,
+        explorerUrl: result.explorerUrl,
+      });
+
+      // Refresh agent data to show updated ERC-8004 fields
+      const res = await fetch(`/api/agents/${params.id}`);
+      if (res.ok) {
+        setAgent(await res.json());
+      }
+    } catch (err) {
+      console.error("On-chain registration failed:", err);
+    }
+  };
 
   // Fetch channels & cron data
   const fetchChannels = React.useCallback(async () => {
@@ -649,12 +706,131 @@ export default function AgentDetailPage() {
               <CardTitle className="text-base">Agent Identity</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              {agent.erc8004AgentId && (
-                <div className="p-3 rounded-lg bg-slate-800/50">
-                  <div className="text-xs text-slate-500 mb-1">ERC-8004 Agent ID</div>
-                  <div className="text-sm text-emerald-400 font-mono">#{agent.erc8004AgentId}</div>
+              {/* ── ERC-8004 On-Chain Status ── */}
+              {agent.erc8004AgentId ? (
+                <>
+                  <div className="p-3 rounded-lg bg-emerald-900/20 border border-emerald-500/30">
+                    <div className="flex items-center gap-2 mb-2">
+                      <CheckCircle className="w-4 h-4 text-emerald-400" />
+                      <span className="text-xs text-emerald-400 font-medium">Registered On-Chain (ERC-8004)</span>
+                    </div>
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-slate-500">Agent ID</span>
+                        <span className="text-sm text-emerald-400 font-mono">#{agent.erc8004AgentId}</span>
+                      </div>
+                      {agent.erc8004TxHash && (
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-slate-500">Tx Hash</span>
+                          <a
+                            href={`${BLOCK_EXPLORERS[agent.erc8004ChainId || 42220] || BLOCK_EXPLORER}/tx/${agent.erc8004TxHash}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs text-blue-400 hover:text-blue-300 font-mono flex items-center gap-1"
+                          >
+                            {agent.erc8004TxHash.slice(0, 10)}...{agent.erc8004TxHash.slice(-6)}
+                            <ExternalLink className="w-3 h-3" />
+                          </a>
+                        </div>
+                      )}
+                      {agent.erc8004ChainId && (
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-slate-500">Chain</span>
+                          <span className="text-xs text-white">
+                            {agent.erc8004ChainId === 42220 ? "Celo Mainnet" : agent.erc8004ChainId === 11142220 ? "Celo Sepolia" : `Chain ${agent.erc8004ChainId}`}
+                          </span>
+                        </div>
+                      )}
+                      {agent.erc8004URI && (
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-slate-500">Registration URI</span>
+                          <a
+                            href={agent.erc8004URI}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs text-blue-400 hover:text-blue-300 font-mono flex items-center gap-1 truncate ml-2"
+                          >
+                            {agent.erc8004URI.length > 30 ? agent.erc8004URI.slice(0, 30) + "..." : agent.erc8004URI}
+                            <ExternalLink className="w-3 h-3 flex-shrink-0" />
+                          </a>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="p-3 rounded-lg bg-amber-900/20 border border-amber-500/30">
+                  <div className="flex items-center gap-2 mb-2">
+                    <AlertCircle className="w-4 h-4 text-amber-400" />
+                    <span className="text-xs text-amber-400 font-medium">Not Registered On-Chain</span>
+                  </div>
+                  <p className="text-[10px] text-slate-400 mb-3">
+                    Register this agent on the ERC-8004 IdentityRegistry to make it discoverable on-chain.
+                    You&apos;ll mint an NFT representing this agent&apos;s identity.
+                  </p>
+
+                  {/* Registration status messages */}
+                  {erc8004Error && (
+                    <div className="p-2 rounded bg-red-900/30 border border-red-500/30 mb-2">
+                      <p className="text-[10px] text-red-400">{erc8004Error}</p>
+                    </div>
+                  )}
+                  {registrationResult && (
+                    <div className="p-2 rounded bg-emerald-900/30 border border-emerald-500/30 mb-2">
+                      <p className="text-[10px] text-emerald-400">
+                        ✅ Registered as #{registrationResult.agentId}
+                      </p>
+                      <a
+                        href={registrationResult.explorerUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[10px] text-blue-400 hover:text-blue-300 flex items-center gap-1 mt-1"
+                      >
+                        View transaction <ExternalLink className="w-3 h-3" />
+                      </a>
+                    </div>
+                  )}
+
+                  {/* Contract deployment check */}
+                  {erc8004Deployed === false && (
+                    <div className="p-2 rounded bg-slate-800/50 mb-2">
+                      <p className="text-[10px] text-slate-400">
+                        ⚠️ ERC-8004 contracts not found on chain {currentChainId}.
+                        {currentChainId !== 42220 && " Switch to Celo Mainnet to register."}
+                      </p>
+                    </div>
+                  )}
+
+                  <Button
+                    size="sm"
+                    className="w-full text-xs h-8"
+                    disabled={
+                      isRegistering ||
+                      !userAddress ||
+                      erc8004Deployed === false
+                    }
+                    onClick={handleRegisterOnChain}
+                  >
+                    {isRegistering ? (
+                      <><Loader2 className="w-3 h-3 animate-spin mr-1" /> Registering...</>
+                    ) : !userAddress ? (
+                      "Connect Wallet First"
+                    ) : erc8004Deployed === false ? (
+                      "Contracts Not Deployed"
+                    ) : (
+                      <><Shield className="w-3 h-3 mr-1" /> Register On-Chain (ERC-8004)</>
+                    )}
+                  </Button>
+
+                  {erc8004Contracts && (
+                    <p className="text-[8px] text-slate-600 mt-1 text-center">
+                      Registry: {erc8004Contracts.identityRegistry.slice(0, 10)}...
+                    </p>
+                  )}
                 </div>
               )}
+
+              {/* ── Agent Configuration ── */}
               <div className="p-3 rounded-lg bg-slate-800/50">
                 <div className="text-xs text-slate-500 mb-1">Runtime</div>
                 <div className="text-sm text-white">Agent Forge Native</div>
@@ -672,16 +848,23 @@ export default function AgentDetailPage() {
               </div>
               {agent.deployedAt && (
                 <div className="p-3 rounded-lg bg-slate-800/50">
-                  <div className="text-xs text-slate-500 mb-1">Deployed</div>
+                  <div className="text-xs text-slate-500 mb-1">Created</div>
                   <div className="text-sm text-white">{formatDate(agent.deployedAt)}</div>
                 </div>
               )}
-              {agent.erc8004URI && (
-                <div className="p-3 rounded-lg bg-slate-800/50">
-                  <div className="text-xs text-slate-500 mb-1">Registration URI</div>
-                  <div className="text-sm text-blue-400 font-mono truncate">{agent.erc8004URI}</div>
-                </div>
-              )}
+
+              {/* Registration JSON link (always available) */}
+              <div className="p-3 rounded-lg bg-slate-800/50">
+                <div className="text-xs text-slate-500 mb-1">Registration JSON</div>
+                <a
+                  href={`/api/agents/${agent.id}/registration.json`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1"
+                >
+                  View Registration File <ExternalLink className="w-3 h-3" />
+                </a>
+              </div>
             </CardContent>
           </Card>
 

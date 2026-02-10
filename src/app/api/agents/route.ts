@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { generateRegistrationJSON } from "@/lib/blockchain/erc8004";
 import { getNextDerivationIndex, deriveAddress } from "@/lib/blockchain/wallet";
 
 // GET /api/agents - List all agents for a user
@@ -44,7 +43,8 @@ export async function GET(request: Request) {
   }
 }
 
-// POST /api/agents - Create and deploy a new agent
+// POST /api/agents - Create a new agent
+// Agent is immediately usable (active). ERC-8004 on-chain registration is a separate step.
 export async function POST(request: Request) {
   try {
     const body = await request.json();
@@ -92,7 +92,8 @@ export async function POST(request: Request) {
       console.warn("Could not derive agent wallet (AGENT_MNEMONIC not set?):", walletErr);
     }
 
-    // Create agent in database
+    // Create agent in database — immediately active (usable for chat & transactions)
+    // On-chain ERC-8004 registration is a separate, optional step done from the client
     const agent = await prisma.agent.create({
       data: {
         name,
@@ -106,71 +107,47 @@ export async function POST(request: Request) {
         ownerId: user.id,
         agentWalletAddress,
         walletDerivationIndex,
-        status: "deploying",
+        status: "active",
+        deployedAt: new Date(),
       },
     });
 
-    // Activate the agent directly (no external gateway needed)
-    try {
-      // Generate & record ERC-8004 registration
-      const erc8004AgentId = Math.floor(Math.random() * 10000).toString();
-      const agentURI = `ipfs://bafkrei${agent.id.replace(/-/g, "").slice(0, 20)}`;
+    // Log creation
+    await prisma.activityLog.create({
+      data: {
+        agentId: agent.id,
+        type: "info",
+        message: `Agent "${name}" created with ${llmProvider || "openrouter"}/${llmModel || "default"}`,
+      },
+    });
 
-      await prisma.agent.update({
-        where: { id: agent.id },
-        data: {
-          status: "active",
-          deployedAt: new Date(),
-          erc8004AgentId,
-          erc8004URI: agentURI,
-        },
-      });
-
+    if (agentWalletAddress) {
       await prisma.activityLog.create({
         data: {
           agentId: agent.id,
-          type: "action",
-          message: `Agent "${name}" deployed with ${llmProvider}/${llmModel}`,
-        },
-      });
-
-      await prisma.activityLog.create({
-        data: {
-          agentId: agent.id,
-          type: "action",
-          message: `Registered on ERC-8004 IdentityRegistry with agentId #${erc8004AgentId}`,
-        },
-      });
-
-      await prisma.transaction.create({
-        data: {
-          agentId: agent.id,
-          type: "register",
-          status: "confirmed",
-          description: "ERC-8004 agent registration",
-          gasUsed: 0.05,
-        },
-      });
-    } catch (deployError) {
-      console.error("Deployment error:", deployError);
-      await prisma.activityLog.create({
-        data: {
-          agentId: agent.id,
-          type: "error",
-          message: `Deployment error: ${deployError instanceof Error ? deployError.message : "Unknown error"}`,
+          type: "info",
+          message: `HD wallet derived: ${agentWalletAddress}`,
         },
       });
     }
 
-    // Return the updated agent
-    const updatedAgent = await prisma.agent.findUnique({
+    await prisma.activityLog.create({
+      data: {
+        agentId: agent.id,
+        type: "info",
+        message: "Agent is active. Register on-chain via ERC-8004 to make it discoverable.",
+      },
+    });
+
+    // Return the created agent
+    const createdAgent = await prisma.agent.findUnique({
       where: { id: agent.id },
       include: {
         activityLogs: { orderBy: { createdAt: "desc" }, take: 5 },
       },
     });
 
-    return NextResponse.json(updatedAgent, { status: 201 });
+    return NextResponse.json(createdAgent, { status: 201 });
   } catch (error) {
     console.error("Failed to create agent:", error);
     return NextResponse.json({ error: "Failed to create agent" }, { status: 500 });
