@@ -129,7 +129,7 @@ export interface ERC8004Registration {
     agentId: string;       // on-chain token ID or "pending"
   }[];
   supportedTrust: string[];
-  // Extended AgentForge fields
+  // Extended AgentHaus fields
   agentWallet?: string;
   chainId?: number;
   framework?: string;

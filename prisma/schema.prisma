@@ -81,7 +81,7 @@ model Agent {
 }
 
 // ─── OpenClaw Channel Binding ──────────────────────────────────────────────
-// Maps a sender on a channel to an AgentForge agent.
+// Maps a sender on a channel to an AgentHaus agent.
 // Created when a user sends a pairing code to the shared bot,
 // or auto-created for dedicated per-agent bots (Telegram, Discord).
 //

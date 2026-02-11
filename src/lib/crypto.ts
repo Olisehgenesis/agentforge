@@ -14,7 +14,7 @@ import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from "crypt
 const ALGORITHM = "aes-256-gcm";
 const IV_LENGTH = 16;
 const AUTH_TAG_LENGTH = 16;
-const SALT = "agentforge-api-key-salt"; // Static salt for key derivation
+const SALT = "agenthaus-api-key-salt"; // Static salt for key derivation
 
 /**
  * Derive a 32-byte encryption key from the secret
@@ -23,7 +23,7 @@ function getEncryptionKey(): Buffer {
   const secret =
     process.env.ENCRYPTION_SECRET ||
     process.env.DATABASE_URL ||
-    "agentforge-dev-fallback-key-change-in-production";
+    "agenthaus-dev-fallback-key-change-in-production";
 
   return scryptSync(secret, SALT, 32);
 }

@@ -131,7 +131,7 @@ export default function AgentDetailPage() {
             registrationResult={ad.registrationResult}
             handleRegisterOnChain={ad.handleRegisterOnChain}
           />
-        </div>
+              </div>
 
         {/* Right column (1/3) */}
         <div className="space-y-6">
@@ -152,13 +152,13 @@ export default function AgentDetailPage() {
             scheduleForm={ad.scheduleForm}
             setScheduleForm={ad.setScheduleForm}
           />
+                  </div>
         </div>
-      </div>
 
       {/* ── Chat / Activity / Transactions tabs ── */}
       <ContentTabs
         agent={agent}
-        activeTab={activeTab}
+                activeTab={activeTab}
         setActiveTab={setActiveTab}
         chatMessages={ad.chatMessages}
         chatInput={ad.chatInput}

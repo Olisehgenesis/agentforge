@@ -1,6 +1,6 @@
 # SelfClaw Verification — Setup Guide
 
-Integrate [SelfClaw](https://selfclaw.ai) into AgentForge so every AI agent can prove it's backed by a real human via [Self.xyz](https://self.xyz) zero-knowledge passport proofs.
+Integrate [SelfClaw](https://selfclaw.ai) into AgentHaus so every AI agent can prove it's backed by a real human via [Self.xyz](https://self.xyz) zero-knowledge passport proofs.
 
 ---
 
@@ -37,7 +37,7 @@ After verification, agents get a ✅ badge in the dashboard and can be trusted b
 
 ```
 ┌─────────────────┐      ┌──────────────────┐      ┌─────────────┐
-│  AgentForge UI  │─────▶│  /api/agents/     │─────▶│  SelfClaw   │
+│  AgentHaus UI  │─────▶│  /api/agents/     │─────▶│  SelfClaw   │
 │  (Verify Tab)   │      │  [id]/verify      │      │  API (v1)   │
 └─────────────────┘      └──────────────────┘      └──────┬──────┘
                                 │                         │
@@ -50,11 +50,11 @@ After verification, agents get a ✅ badge in the dashboard and can be trusted b
 ```
 
 **Flow summary:**
-1. AgentForge generates an Ed25519 key pair for the agent
+1. AgentHaus generates an Ed25519 key pair for the agent
 2. Public key is sent to SelfClaw → returns a session + challenge
-3. AgentForge signs the challenge server-side → submits signature
+3. AgentHaus signs the challenge server-side → submits signature
 4. User scans a QR code with the Self app (passport NFC verification)
-5. AgentForge polls SelfClaw until verification completes
+5. AgentHaus polls SelfClaw until verification completes
 6. Agent is marked verified in the database with a `humanId`
 
 ---
@@ -65,7 +65,7 @@ After verification, agents get a ✅ badge in the dashboard and can be trusted b
 |---|---|
 | Node.js | v18+ |
 | `@noble/ed25519` | Ed25519 key generation & signing (`npm install @noble/ed25519`) |
-| Prisma | ORM for database (already part of AgentForge) |
+| Prisma | ORM for database (already part of AgentHaus) |
 | `ENCRYPTION_SECRET` | For AES-256-GCM encryption of private keys in the database |
 
 ### Install the Ed25519 library

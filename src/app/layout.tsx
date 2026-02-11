@@ -17,7 +17,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Celo Agent Forge | No-Code AI Agent Platform",
+  title: "Celo AgentHaus | No-Code AI Agent Platform",
   description: "Create, deploy, and manage AI agents on the Celo blockchain. No coding required.",
   icons: {
     icon: "/favicon.ico",

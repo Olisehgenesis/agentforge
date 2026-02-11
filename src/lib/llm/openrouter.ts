@@ -45,7 +45,7 @@ export async function chatCompletion(
       "Content-Type": "application/json",
       Authorization: `Bearer ${key}`,
       "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
-      "X-Title": "Celo Agent Forge",
+      "X-Title": "Celo AgentHaus",
     },
     body: JSON.stringify({
       model,
@@ -83,7 +83,7 @@ export async function chatCompletionStream(
       "Content-Type": "application/json",
       Authorization: `Bearer ${key}`,
       "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
-      "X-Title": "Celo Agent Forge",
+      "X-Title": "Celo AgentHaus",
     },
     body: JSON.stringify({
       model,

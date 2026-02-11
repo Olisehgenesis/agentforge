@@ -1,7 +1,7 @@
 /**
  * Channel Router
  *
- * Resolves which AgentForge agent should handle an incoming message
+ * Resolves which AgentHaus agent should handle an incoming message
  * from an OpenClaw channel.
  *
  * Resolution order:
@@ -137,11 +137,11 @@ export async function routeMessage(ctx: SenderContext): Promise<RouteResult> {
     type: "unknown",
     agentId: null,
     systemReply: [
-      `👋 Welcome to **AgentForge**!`,
+      `👋 Welcome to **AgentHaus**!`,
       ``,
       `To connect to an AI agent, send your **pairing code** (e.g. \`AF7X2K\`).`,
       ``,
-      `You can get a pairing code from your agent's dashboard at agentforge.app`,
+      `You can get a pairing code from your agent's dashboard at agenthaus.app`,
       ``,
       `Commands:`,
       `• Send a code to pair → \`AF7X2K\``,

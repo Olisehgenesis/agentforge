@@ -46,7 +46,7 @@ export async function GET(
 
     const registrationJSON = generateRegistrationJSON(
       agent.name,
-      agent.description || `${agent.templateType} agent powered by AgentForge`,
+      agent.description || `${agent.templateType} agent powered by AgentHaus`,
       serviceUrl,
       agent.agentWalletAddress || undefined,
       agent.erc8004ChainId || 42220,

@@ -6,7 +6,7 @@
  *
  * Used by:
  *   - OpenClaw Gateway to health-check the backend
- *   - AgentForge dashboard to show channel connection status
+ *   - AgentHaus dashboard to show channel connection status
  */
 
 import { NextResponse } from "next/server";
@@ -61,7 +61,7 @@ async function overallStatus() {
 
   return NextResponse.json({
     status: "ok",
-    service: "agentforge",
+    service: "agenthaus",
     timestamp: new Date().toISOString(),
     gateway: {
       webhookUrl: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/api/openclaw/webhook`,

@@ -7,7 +7,7 @@
  * Handles both shared-bot (pairing code) and dedicated-bot routing.
  *
  * Flow:
- *   1. Validate webhook secret (shared between AgentForge and OpenClaw)
+ *   1. Validate webhook secret (shared between AgentHaus and OpenClaw)
  *   2. Parse the OpenClaw payload → SenderContext
  *   3. Route via routeMessage() → find or pair the agent
  *   4. If agent found → processMessage() → skills + transactions
@@ -192,7 +192,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       reply: isMissingKey
-        ? "⚠️ The agent owner hasn't configured their API key yet. Please ask them to set it up on the AgentForge dashboard."
+        ? "⚠️ The agent owner hasn't configured their API key yet. Please ask them to set it up on the AgentHaus dashboard."
         : "❌ Something went wrong processing your message. Please try again.",
       agentId: "",
       agentName: "",
@@ -206,7 +206,7 @@ export async function POST(request: Request) {
 export async function GET() {
   return NextResponse.json({
     status: "ok",
-    service: "agentforge-openclaw-webhook",
+    service: "agenthaus-openclaw-webhook",
     timestamp: new Date().toISOString(),
   });
 }

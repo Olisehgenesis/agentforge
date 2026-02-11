@@ -149,9 +149,9 @@ export function generateRegistrationJSON(
     image: `${serviceUrl.replace(/\/api\/.*/, "")}/icon.png`,
     services: [
       {
-        type: "agentforge-chat",
+        type: "agenthaus-chat",
         url: serviceUrl,
-        description: "AgentForge agent chat endpoint",
+        description: "AgentHaus agent chat endpoint",
       },
     ],
     registrations: [
@@ -164,7 +164,7 @@ export function generateRegistrationJSON(
     // Extended fields
     agentWallet: agentWalletAddress,
     chainId,
-    framework: "agentforge",
+    framework: "agenthaus",
   };
 }
 
@@ -204,10 +204,10 @@ export async function registerAgent(
     });
   } else {
     data = encodeFunctionData({
-      abi: IDENTITY_REGISTRY_ABI,
-      functionName: "register",
-      args: [agentURI],
-    });
+    abi: IDENTITY_REGISTRY_ABI,
+    functionName: "register",
+    args: [agentURI],
+  });
   }
 
   const hash = await walletClient.sendTransaction({

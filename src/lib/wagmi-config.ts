@@ -37,7 +37,7 @@ const celo = defineChain({
 });
 
 export const config = getDefaultConfig({
-  appName: "Celo Agent Forge",
+  appName: "Celo AgentHaus",
   projectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || "demo-project-id",
   // Celo Sepolia first — we're on testnet for now
   chains: [celoSepolia, celo],

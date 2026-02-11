@@ -104,8 +104,8 @@ export async function verifyBotToken(botToken: string): Promise<{
  * Register a webhook with Telegram so updates come to our API.
  *
  * @param botToken The bot token from @BotFather
- * @param agentId The Agent Forge agent ID (used in the webhook URL)
- * @param baseUrl The public URL of our app (e.g. https://agentforge.example.com)
+ * @param agentId The AgentHaus agent ID (used in the webhook URL)
+ * @param baseUrl The public URL of our app (e.g. https://agenthaus.example.com)
  * @param secret A secret token for webhook verification
  */
 export async function setWebhook(

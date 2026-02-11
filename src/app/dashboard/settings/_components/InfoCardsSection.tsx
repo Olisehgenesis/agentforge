@@ -59,7 +59,7 @@ export function InfoCardsSection() {
               📡 <strong className="text-forest">Multi-tenant:</strong> Each agent has its own
               Telegram bot token. Connect channels from the{" "}
               <strong>agent detail page</strong> → Channels &amp; Tasks card. No external gateway
-              needed — everything runs natively in Agent Forge.
+              needed — everything runs natively in AgentHaus.
             </p>
           </div>
           <div className="p-3 rounded-lg bg-gypsum">

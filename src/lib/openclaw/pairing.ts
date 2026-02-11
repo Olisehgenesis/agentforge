@@ -2,7 +2,7 @@
  * Pairing Code System
  *
  * Generates short, human-friendly codes for binding a sender identity
- * (WhatsApp phone, Telegram user, etc.) to an AgentForge agent.
+ * (WhatsApp phone, Telegram user, etc.) to an AgentHaus agent.
  *
  * Format: "AF" + 4 alphanumeric chars = 6 chars total (e.g. "AF7X2K")
  *   → 36^4 = 1,679,616 possible codes — enough for a single platform.

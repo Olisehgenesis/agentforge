@@ -27,7 +27,7 @@ export default function HomePage() {
           <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-celo shadow-lg shadow-celo/20">
             <Zap className="w-5 h-5 text-forest" />
           </div>
-          <span className="text-xl font-bold text-forest tracking-tight">Agent Forge</span>
+          <span className="text-xl font-bold text-forest tracking-tight">AgentHaus</span>
         </div>
         <div className="flex items-center gap-4">
           <ConnectButton
@@ -117,7 +117,7 @@ export default function HomePage() {
             Everything You Need
           </h2>
           <p className="text-forest-muted max-w-xl mx-auto">
-            From creation to monitoring, Agent Forge handles the entire lifecycle 
+            From creation to monitoring, AgentHaus handles the entire lifecycle 
             of your AI agents on Celo.
           </p>
         </div>
@@ -212,7 +212,7 @@ export default function HomePage() {
           <div className="flex items-center gap-2">
             <Zap className="w-4 h-4 text-forest" />
             <span className="text-sm text-forest-muted">
-              Celo Agent Forge © 2026
+              Celo AgentHaus © 2026
             </span>
           </div>
           <div className="flex items-center gap-4 text-sm text-forest-muted">

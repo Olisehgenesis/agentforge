@@ -385,3 +385,4 @@ export function checkAlerts(thresholdPercent: number = 2): PriceAlert[] {
   return alerts;
 }
 
+

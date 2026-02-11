@@ -218,7 +218,7 @@ export default function NewAgentPage() {
       });
 
       setDeployStatus("done");
-      router.push(`/dashboard/agents/${agent.id}`);
+        router.push(`/dashboard/agents/${agent.id}`);
     } catch (error) {
       console.error("Failed to deploy agent:", error);
       setDeployError(error instanceof Error ? error.message : "Deployment failed");
@@ -276,9 +276,9 @@ export default function NewAgentPage() {
           setLlmProvider={(p) => {
             setLlmProvider(p);
             setLlmModel(LLM_MODELS[p][0].id);
-            setApiKey("");
-            setApiKeySaved(false);
-          }}
+                    setApiKey("");
+                    setApiKeySaved(false);
+                  }}
           llmModel={llmModel}
           setLlmModel={setLlmModel}
           config={config}

@@ -221,7 +221,7 @@ export function AgentIdentityCard({
         {/* ── Agent Configuration ── */}
         <div className="p-3 rounded-lg bg-gypsum">
           <div className="text-xs text-forest-muted/70 mb-1">Runtime</div>
-          <div className="text-sm text-forest">Agent Forge Native</div>
+          <div className="text-sm text-forest">AgentHaus Native</div>
         </div>
         <div className="p-3 rounded-lg bg-gypsum">
           <div className="text-xs text-forest-muted/70 mb-1">LLM Provider</div>

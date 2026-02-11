@@ -5,17 +5,17 @@
  *
  * Architecture:
  *   OpenClaw Gateway is a single process that bridges ALL channels
- *   (WhatsApp, Telegram, Discord, iMessage) to AgentForge's webhook.
+ *   (WhatsApp, Telegram, Discord, iMessage) to AgentHaus's webhook.
  *
  *   The gateway doesn't run its own LLM — it forwards every message to:
- *     POST {AGENTFORGE_URL}/api/openclaw/webhook
+ *     POST {AGENTHAUS_URL}/api/openclaw/webhook
  *
- *   AgentForge handles routing (via ChannelBinding), LLM, skills, and transactions,
+ *   AgentHaus handles routing (via ChannelBinding), LLM, skills, and transactions,
  *   then returns the reply in the response body. OpenClaw relays it back.
  *
  * Two modes:
  *   1. Shared Bot — one bot per channel for the whole platform.
- *      All messages → webhook → AgentForge routes by pairing code.
+ *      All messages → webhook → AgentHaus routes by pairing code.
  *   2. Dedicated Bot — per-agent bots (existing Telegram/Discord setup).
  *      OpenClaw manages multiple bot accounts, tags each with meta.botId = agentId.
  *
@@ -103,7 +103,7 @@ export interface OpenClawGatewayConfig {
   channels: {
     telegram?: {
       enabled: boolean;
-      botToken: string;                  // shared @AgentForgeBot token
+      botToken: string;                  // shared @AgentHausBot token
       allowedUpdates: string[];          // ["message", "callback_query"]
     };
     discord?: {
@@ -142,7 +142,7 @@ export interface OpenClawGatewayConfig {
     }>;
   };
 
-  /** Session management (OpenClaw side — lightweight, real history in AgentForge) */
+  /** Session management (OpenClaw side — lightweight, real history in AgentHaus) */
   sessions: {
     isolation: "per-sender";
     timeout: number;
@@ -258,11 +258,11 @@ export function generateOpenClawConfig(params: GenerateConfigParams): OpenClawAg
 // ─── Generate Unified Gateway Config ───────────────────────────────────────
 
 interface GatewayConfigParams {
-  /** AgentForge public URL (where OpenClaw can reach the webhook) */
+  /** AgentHaus public URL (where OpenClaw can reach the webhook) */
   appUrl: string;
   /** Shared secret for webhook auth */
   webhookSecret: string;
-  /** Shared Telegram bot token (for @AgentForgeBot) */
+  /** Shared Telegram bot token (for @AgentHausBot) */
   telegramBotToken?: string;
   /** Shared Discord bot token */
   discordBotToken?: string;
@@ -284,7 +284,7 @@ interface GatewayConfigParams {
 export function generateGatewayConfig(params: GatewayConfigParams): OpenClawGatewayConfig {
   const config: OpenClawGatewayConfig = {
     gateway: {
-      name: "agentforge-gateway",
+      name: "agenthaus-gateway",
       version: "1.0.0",
     },
     webhook: {
@@ -297,7 +297,7 @@ export function generateGatewayConfig(params: GatewayConfigParams): OpenClawGate
     sessions: {
       isolation: "per-sender",
       timeout: 60,
-      maxHistory: 5, // minimal on gateway — real history lives in AgentForge DB
+      maxHistory: 5, // minimal on gateway — real history lives in AgentHaus DB
     },
     rateLimit: {
       maxPerMinute: 30,
@@ -328,7 +328,7 @@ export function generateGatewayConfig(params: GatewayConfigParams): OpenClawGate
   if (params.whatsappEnabled) {
     config.channels.whatsapp = {
       enabled: true,
-      sessionName: "agentforge-wa",
+      sessionName: "agenthaus-wa",
       phoneNumber: params.whatsappPhone,
     };
   }

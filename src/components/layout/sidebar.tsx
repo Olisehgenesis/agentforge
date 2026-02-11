@@ -42,7 +42,7 @@ export function Sidebar() {
         </div>
         {!collapsed && (
           <div>
-            <h1 className="text-lg font-bold text-white tracking-tight">Agent Forge</h1>
+            <h1 className="text-lg font-bold text-white tracking-tight">AgentHaus</h1>
             <p className="text-[10px] text-celo font-medium tracking-wider uppercase">
               Powered by Celo
             </p>

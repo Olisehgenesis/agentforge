@@ -7,7 +7,7 @@
  * POST   /api/openclaw/channels            — generate pairing code or create binding
  * DELETE  /api/openclaw/channels            — deactivate a binding or revoke pairing code
  *
- * Used by the AgentForge dashboard to:
+ * Used by the AgentHaus dashboard to:
  *   - Show connected users per channel
  *   - Generate/refresh pairing codes
  *   - Kick/disconnect users
@@ -109,9 +109,9 @@ export async function POST(request: Request) {
           instructions: [
             `Share this code with users who want to connect to your agent:`,
             ``,
-            `📱 WhatsApp: Send "${result.code}" to the AgentForge number`,
-            `💬 Telegram: Send "${result.code}" to @AgentForgeBot`,
-            `🎮 Discord: Send "${result.code}" in DM to AgentForge bot`,
+            `📱 WhatsApp: Send "${result.code}" to the AgentHaus number`,
+            `💬 Telegram: Send "${result.code}" to @AgentHausBot`,
+            `🎮 Discord: Send "${result.code}" in DM to AgentHaus bot`,
             ``,
             `Code expires in 24 hours. Refresh anytime from the dashboard.`,
           ].join("\n"),
