@@ -245,7 +245,7 @@ export async function requestSponsorshipForAgent(
   // SelfClaw requires 10% slippage buffer: we must SEND poolAmount * 1.1 to sponsor.
   // Cap pool amount to balance/1.1 so we can send our full balance and meet the buffer.
   const balanceBig = BigInt(balanceWei);
-  const maxPoolWei = (balanceBig * 10n) / 11n; // floor(balance / 1.1)
+  const maxPoolWei = (balanceBig * BigInt(10)) / BigInt(11); // floor(balance / 1.1)
 
   let amountWei: string;
   if (tokenAmountOverride?.trim()) {
@@ -469,8 +469,9 @@ export async function deployTokenForAgent(
       return { success: false, error: "Deploy succeeded but no contract address in receipt." };
     }
 
+    const publicKey = agent.verification!.publicKey;
     const getSignedPayload = () =>
-      signAuthenticatedPayload(agent.verification.publicKey, privateKeyHex);
+      signAuthenticatedPayload(publicKey, privateKeyHex);
     await registerTokenWithRetry(getSignedPayload, tokenAddress, hash);
 
     // Persist so sponsorship works before SelfClaw indexes; supports multiple tokens

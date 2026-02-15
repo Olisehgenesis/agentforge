@@ -5,6 +5,7 @@
 export interface AgentData {
   id: string;
   name: string;
+  owner?: { walletAddress?: string | null };
   description: string | null;
   imageUrl: string | null;
   templateType: string;

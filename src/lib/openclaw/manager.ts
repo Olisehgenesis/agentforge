@@ -212,7 +212,7 @@ Track deployed tokens: after deploying, remember the token address. Use it when 
   ];
 
   // For OpenRouter free models: retry with fallback models on 429/400/502
-  let response: Awaited<ReturnType<typeof chat>>;
+  let response: Awaited<ReturnType<typeof chat>> | undefined;
   let usedModel = effectiveModel;
 
   const attemptChat = async (provider: typeof effectiveProvider, model: string, key: string) =>
@@ -274,6 +274,10 @@ Track deployed tokens: after deploying, remember the token address. Use it when 
     } else {
       throw firstErr;
     }
+  }
+
+  if (!response) {
+    throw new Error("Failed to get LLM response");
   }
 
   // Log the interaction
