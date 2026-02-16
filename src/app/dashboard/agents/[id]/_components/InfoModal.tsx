@@ -1,10 +1,10 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import Image from "next/image";
 import { Modal } from "@/components/ui/modal";
 import { Badge } from "@/components/ui/badge";
-import { Shield, Wallet, Zap, Send } from "lucide-react";
+import { Shield, Wallet, Zap, Send, Key, Copy, Check } from "lucide-react";
 import { getTemplateIcon } from "@/lib/utils";
 import { ipfsToPublicGatewayUrl } from "@/lib/ipfs-url";
 import type { AgentData, VerificationStatus, ChannelData } from "../_types";
@@ -16,6 +16,30 @@ const TEMPLATE_SKILLS: Record<string, string[]> = {
   social: ["Send CELO", "Send Tokens", "Check Balance"],
   custom: ["Send CELO", "Send Tokens", "Oracle Rates", "Mento Quote", "Gas Price"],
 };
+
+export function PublicKeyDisplay({ publicKey }: { publicKey: string }) {
+  const [copied, setCopied] = useState(false);
+  const copy = () => {
+    navigator.clipboard.writeText(publicKey);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+  return (
+    <div className="flex items-start gap-2">
+      <code className="flex-1 text-xs text-forest-muted break-all block bg-gypsum px-2 py-2 rounded-lg font-mono">
+        {publicKey}
+      </code>
+      <button
+        type="button"
+        onClick={copy}
+        className="shrink-0 p-2 rounded-lg hover:bg-forest/10 text-forest-muted hover:text-forest transition-colors"
+        title="Copy"
+      >
+        {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
+      </button>
+    </div>
+  );
+}
 
 interface InfoModalProps {
   open: boolean;
@@ -53,7 +77,9 @@ export function InfoModal({ open, onClose, agent, verificationStatus, channelDat
           </div>
           <div>
             <h2 className="text-lg font-semibold text-forest">{agent.name}</h2>
-            <Badge variant="outline" className="capitalize">{agent.templateType}</Badge>
+            <div className="flex items-center gap-2 mt-0.5">
+              <Badge variant="outline" className="capitalize">{agent.templateType}</Badge>
+            </div>
           </div>
         </div>
 
@@ -74,6 +100,35 @@ export function InfoModal({ open, onClose, agent, verificationStatus, channelDat
             )}
           </div>
         </div>
+
+        <div>
+          <h3 className="text-sm font-medium text-forest mb-2 flex items-center gap-2">
+            <Key className="w-4 h-4" />
+            Agent ID
+          </h3>
+          <PublicKeyDisplay publicKey={agent.id} />
+        </div>
+
+        {agent.erc8004AgentId && (
+          <div>
+            <h3 className="text-sm font-medium text-forest mb-2 flex items-center gap-2">
+              <Shield className="w-4 h-4" />
+              ERC-8004 On-Chain ID
+            </h3>
+            <PublicKeyDisplay publicKey={agent.erc8004AgentId} />
+          </div>
+        )}
+
+        {(verificationStatus?.publicKey ?? agent.verification?.publicKey) && (
+          <div>
+            <h3 className="text-sm font-medium text-forest mb-2 flex items-center gap-2">
+              <Key className="w-4 h-4" />
+              Agent Public Key
+            </h3>
+            <p className="text-xs text-forest-muted mb-1">Ed25519 SPKI base64 (SelfClaw)</p>
+            <PublicKeyDisplay publicKey={(verificationStatus?.publicKey ?? agent.verification?.publicKey)!} />
+          </div>
+        )}
 
         {agent.agentWalletAddress && (
           <div>

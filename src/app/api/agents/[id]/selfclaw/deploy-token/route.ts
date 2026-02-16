@@ -39,6 +39,7 @@ export async function POST(
       select: {
         walletDerivationIndex: true,
         agentWalletAddress: true,
+        agentDeployedTokens: true,
         verification: {
           select: { publicKey: true, encryptedPrivateKey: true, selfxyzVerified: true },
         },
@@ -54,6 +55,24 @@ export async function POST(
         { error: "Agent must be verified and have a wallet" },
         { status: 400 }
       );
+    }
+
+    // Don't deploy if agent already has token(s)
+    const force = body.force === true;
+    if (!force && agent.agentDeployedTokens) {
+      try {
+        const tokens = JSON.parse(agent.agentDeployedTokens) as Array<{ address: string; name: string; symbol: string }>;
+        if (tokens.length > 0) {
+          return NextResponse.json(
+            {
+              error: `Agent already has a deployed token (${tokens[0].name} / ${tokens[0].symbol}). Use REQUEST_SELFCLAW_SPONSORSHIP for liquidity.`,
+            },
+            { status: 400 }
+          );
+        }
+      } catch {
+        // ignore parse errors
+      }
     }
 
     const privateKeyHex = decryptPrivateKey(agent.verification.encryptedPrivateKey);

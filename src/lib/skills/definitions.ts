@@ -289,7 +289,7 @@ const SKILL_DEFINITIONS: SkillDefinition[] = [
   {
     id: "selfclaw_deploy_token",
     name: "Deploy Agent Token",
-    description: "Deploy ERC20 and register with SelfClaw. Use 1B+ supply (billions) for sponsorship + wallet buffer.",
+    description: "Deploy ERC20 and register with SelfClaw. Use 1B+ supply (billions) for sponsorship + wallet buffer. Skips if agent already has a token — use REQUEST_SELFCLAW_SPONSORSHIP instead.",
     category: "defi",
     commandTag: "SELFCLAW_DEPLOY_TOKEN",
     params: [

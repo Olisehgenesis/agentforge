@@ -26,6 +26,7 @@ export interface AgentData {
   deployedAt: string | null;
   transactions: TransactionData[];
   activityLogs: ActivityLogData[];
+  verification?: { publicKey: string } | null;
 }
 
 export interface TransactionData {

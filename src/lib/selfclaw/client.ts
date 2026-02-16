@@ -348,6 +348,10 @@ export async function registerTokenWithRetry(
       return;
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
+      // Already registered — idempotent success
+      if (/already registered|already exists|409|duplicate/i.test(msg)) {
+        return;
+      }
       const isVerifyError = /verify|confirmed|index/i.test(msg);
       const isNonceError = /nonce already used/i.test(msg);
       if (attempt < maxRetries && (isVerifyError || isNonceError)) {

@@ -11,6 +11,7 @@ const API_KEY_FIELDS = [
   "geminiApiKey",
   "deepseekApiKey",
   "zaiApiKey",
+  "anthropicApiKey",
 ] as const;
 
 type ApiKeyField = (typeof API_KEY_FIELDS)[number];

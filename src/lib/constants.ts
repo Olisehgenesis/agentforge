@@ -167,7 +167,7 @@ export const FEE_CURRENCIES: Record<number, Record<string, { feeCurrency: string
   },
 } as const;
 
-// LLM Models — OpenRouter (free-only), Groq, OpenAI, Grok, Gemini, DeepSeek, Z.AI
+// LLM Models — OpenRouter (free-only), Groq, OpenAI, Grok, Gemini, DeepSeek, Z.AI, Anthropic (Claude)
 export const LLM_MODELS = {
   openrouter: [
     { id: "meta-llama/llama-3.3-70b-instruct:free", name: "Llama 3.3 70B (Free)" },
@@ -217,6 +217,12 @@ export const LLM_MODELS = {
     { id: "glm-4-airx", name: "GLM-4 AirX" },
     { id: "glm-4-long", name: "GLM-4 Long" },
     { id: "glm-4", name: "GLM-4" },
+  ],
+  anthropic: [
+    { id: "claude-sonnet-4-20250514", name: "Claude Sonnet 4" },
+    { id: "claude-opus-4-20250514", name: "Claude Opus 4" },
+    { id: "claude-3-5-sonnet-20241022", name: "Claude 3.5 Sonnet" },
+    { id: "claude-3-5-haiku-20241022", name: "Claude 3.5 Haiku" },
   ],
 } as const;
 
@@ -270,6 +276,13 @@ export const LLM_PROVIDER_INFO = {
     keyPlaceholder: "...",
     keyUrl: "https://open.bigmodel.cn/",
     hasFreeModels: true,
+  },
+  anthropic: {
+    label: "Anthropic (Claude)",
+    description: "Claude Sonnet, Opus, Haiku from Anthropic",
+    keyPlaceholder: "sk-ant-...",
+    keyUrl: "https://console.anthropic.com/settings/keys",
+    hasFreeModels: false,
   },
 } as const;
 

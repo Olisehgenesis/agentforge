@@ -4,9 +4,10 @@ import React from "react";
 import Link from "next/link";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
-import { Shield, Coins, Wallet, ExternalLink, AlertCircle, Loader2, Send, CheckCircle, XCircle } from "lucide-react";
+import { Shield, Coins, Wallet, ExternalLink, AlertCircle, Loader2, Send, CheckCircle, XCircle, Key } from "lucide-react";
 import { get8004ScanAgentUrl } from "@/lib/constants";
 import type { AgentData, VerificationStatus, ChannelData } from "../_types";
+import { PublicKeyDisplay } from "./InfoModal";
 
 interface AdminModalProps {
   open: boolean;
@@ -79,6 +80,24 @@ export function AdminModal({
     <Modal open={open} onClose={onClose} className="max-w-md max-h-[90vh] overflow-auto">
       <div className="p-6 space-y-5">
         <h2 className="text-lg font-semibold text-forest">Admin</h2>
+
+        <div>
+          <h3 className="text-sm font-medium text-forest mb-2 flex items-center gap-2">
+            <Key className="w-4 h-4" />
+            Agent ID
+          </h3>
+          <PublicKeyDisplay publicKey={agent.id} />
+        </div>
+
+        {agent.erc8004AgentId && (
+          <div>
+            <h3 className="text-sm font-medium text-forest mb-2 flex items-center gap-2">
+              <Shield className="w-4 h-4" />
+              ERC-8004 On-Chain ID
+            </h3>
+            <PublicKeyDisplay publicKey={agent.erc8004AgentId} />
+          </div>
+        )}
 
         <div>
           <h3 className="text-sm font-medium text-forest mb-2 flex items-center gap-2">
@@ -184,6 +203,17 @@ export function AdminModal({
           )}
         </div>
 
+        {(verificationStatus?.publicKey ?? agent.verification?.publicKey) && (
+          <div>
+            <h3 className="text-sm font-medium text-forest mb-2 flex items-center gap-2">
+              <Key className="w-4 h-4" />
+              Agent Public Key
+            </h3>
+            <p className="text-xs text-forest-muted mb-1">Ed25519 SPKI base64 (SelfClaw)</p>
+            <PublicKeyDisplay publicKey={(verificationStatus?.publicKey ?? agent.verification?.publicKey)!} />
+          </div>
+        )}
+
         {agent.agentWalletAddress && (
           <div>
             <h3 className="text-sm font-medium text-forest mb-2 flex items-center gap-2">
@@ -225,7 +255,7 @@ export function AdminModal({
                 className="inline-flex items-center gap-2 text-sm text-forest-light hover:underline"
               >
                 <ExternalLink className="w-4 h-4" />
-                Registered — View on 8004scan
+                View on 8004scan
               </a>
               {verificationStatus?.verified && onSyncToSelfClaw && (
                 <Button

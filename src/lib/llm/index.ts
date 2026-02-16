@@ -10,6 +10,7 @@ import * as grok from "./grok";
 import * as gemini from "./gemini";
 import * as deepseek from "./deepseek";
 import * as zai from "./zai";
+import * as anthropic from "./anthropic";
 import type { LLMProvider } from "@/lib/types";
 
 export interface ChatMessage {
@@ -98,6 +99,8 @@ export function getModelsForProvider(provider: LLMProvider) {
       return [...deepseek.DEEPSEEK_MODELS];
     case "zai":
       return [...zai.ZAI_MODELS];
+    case "anthropic":
+      return [...anthropic.ANTHROPIC_MODELS];
     default:
       return [];
   }
@@ -121,6 +124,8 @@ function getProviderModule(provider: LLMProvider) {
       return deepseek;
     case "zai":
       return zai;
+    case "anthropic":
+      return anthropic;
     default:
       throw new Error(`Unsupported LLM provider: ${provider}`);
   }
@@ -142,6 +147,8 @@ export function getDefaultModel(provider: LLMProvider): string {
       return "deepseek-chat";
     case "zai":
       return "glm-4-flash";
+    case "anthropic":
+      return "claude-sonnet-4-20250514";
     default:
       return "";
   }

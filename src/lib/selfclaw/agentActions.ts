@@ -574,12 +574,14 @@ export async function deployTokenForAgent(
   agentId: string,
   name: string,
   symbol: string,
-  initialSupply: string = "10000000000" // 10B default — plenty for SelfClaw sponsorship + wallet buffer
+  initialSupply: string = "10000000000", // 10B default — plenty for SelfClaw sponsorship + wallet buffer
+  force = false
 ): Promise<{ success: boolean; tokenAddress?: string; txHash?: string; error?: string }> {
   const agent = await prisma.agent.findUnique({
     where: { id: agentId },
     select: {
       walletDerivationIndex: true,
+      agentDeployedTokens: true,
       verification: {
         select: { publicKey: true, encryptedPrivateKey: true, selfxyzVerified: true },
       },
@@ -592,6 +594,22 @@ export async function deployTokenForAgent(
     agent.walletDerivationIndex === null
   ) {
     return { success: false, error: "Agent must be verified and have a wallet." };
+  }
+
+  // Don't deploy if agent already has token(s) — prevents duplicate registrations
+  if (!force && agent.agentDeployedTokens) {
+    try {
+      const tokens = JSON.parse(agent.agentDeployedTokens) as Array<{ address: string; name: string; symbol: string }>;
+      if (tokens.length > 0) {
+        const existing = tokens[0];
+        return {
+          success: false,
+          error: `Agent already has a deployed token (${existing.name} / ${existing.symbol}). Use [[AGENT_TOKENS]] to see it. Request sponsorship with [[REQUEST_SELFCLAW_SPONSORSHIP]].`,
+        };
+      }
+    } catch {
+      // ignore parse errors
+    }
   }
 
   try {

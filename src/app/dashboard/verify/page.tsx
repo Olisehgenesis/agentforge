@@ -18,6 +18,8 @@ import {
   ArrowRight,
   AlertCircle,
   RefreshCw,
+  Copy,
+  Check,
 } from "lucide-react";
 import { getTemplateIcon, getStatusColor } from "@/lib/utils";
 import { DEPLOYMENT_ATTRIBUTION } from "@/lib/constants";
@@ -32,10 +34,31 @@ interface AgentWithVerification {
     selfxyzVerified: boolean;
     humanId: string | null;
     verifiedAt: string | null;
+    publicKey: string | null;
   } | null;
 }
 
 const CELO_MAINNET_CHAIN_ID = 42220;
+
+function CopyPublicKeyButton({ publicKey }: { publicKey: string }) {
+  const [copied, setCopied] = React.useState(false);
+  const copy = () => {
+    navigator.clipboard.writeText(publicKey);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+  return (
+    <button
+      type="button"
+      onClick={(e) => { e.preventDefault(); e.stopPropagation(); copy(); }}
+      className="flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] text-accent-light hover:bg-accent/10 border border-accent/20 transition-colors"
+      title="Copy key for SelfClaw verify"
+    >
+      {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+      {copied ? "Copied" : "Copy key"}
+    </button>
+  );
+}
 
 export default function VerifyPage() {
   const { address, chainId, isConnected } = useAccount();
@@ -292,6 +315,14 @@ export default function VerifyPage() {
                             )}
                           </div>
                           <div className="text-[10px] text-forest-faint mt-0.5">{DEPLOYMENT_ATTRIBUTION}</div>
+                          {agent.verification?.publicKey && (
+                            <div className="mt-2 flex items-center gap-2">
+                              <code className="text-[10px] text-forest-muted font-mono truncate max-w-[180px]" title={agent.verification.publicKey}>
+                                {agent.verification.publicKey.slice(0, 28)}…
+                              </code>
+                              <CopyPublicKeyButton publicKey={agent.verification.publicKey} />
+                            </div>
+                          )}
                         </div>
                       </div>
 

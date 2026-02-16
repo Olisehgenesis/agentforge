@@ -32,6 +32,7 @@ export const PROVIDERS: {
   { key: "gemini", label: "Google Gemini API Key", dbField: "geminiApiKey", hasKeyField: "hasGeminiKey", maskedField: "geminiApiKey", badge: "Gemini 2.0, 1.5 Pro" },
   { key: "deepseek", label: "DeepSeek API Key", dbField: "deepseekApiKey", hasKeyField: "hasDeepseekKey", maskedField: "deepseekApiKey", badge: "DeepSeek V3, R1" },
   { key: "zai", label: "Z.AI (Zhipu) API Key", dbField: "zaiApiKey", hasKeyField: "hasZaiKey", maskedField: "zaiApiKey", badge: "GLM-4 Flash Free" },
+  { key: "anthropic", label: "Anthropic (Claude) API Key", dbField: "anthropicApiKey", hasKeyField: "hasAnthropicKey", maskedField: "anthropicApiKey", badge: "Claude Sonnet, Opus" },
 ];
 
 interface ApiKeysSectionProps {

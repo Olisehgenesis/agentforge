@@ -248,6 +248,7 @@ export function ConfigureStep({
                   { value: "openrouter", label: "OpenRouter (Free Models)" },
                   { value: "groq", label: "Groq (Fast Inference)" },
                   { value: "openai", label: "OpenAI (ChatGPT)" },
+                  { value: "anthropic", label: "Anthropic (Claude)" },
                   { value: "grok", label: "Grok (xAI)" },
                   { value: "gemini", label: "Google Gemini" },
                   { value: "deepseek", label: "DeepSeek" },

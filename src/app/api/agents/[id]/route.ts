@@ -19,6 +19,9 @@ export async function GET(
           orderBy: { createdAt: "desc" },
         },
         owner: true,
+        verification: {
+          select: { publicKey: true },
+        },
       },
     });
 

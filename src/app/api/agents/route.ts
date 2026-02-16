@@ -38,6 +38,7 @@ export async function GET(request: Request) {
             selfxyzVerified: true,
             humanId: true,
             verifiedAt: true,
+            publicKey: true,
           },
         },
       },

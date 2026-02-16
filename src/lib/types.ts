@@ -2,7 +2,7 @@ export type AgentTemplate = "payment" | "trading" | "forex" | "social" | "custom
 
 export type AgentStatus = "draft" | "deploying" | "active" | "paused" | "stopped";
 
-export type LLMProvider = "openrouter" | "openai" | "groq" | "grok" | "gemini" | "deepseek" | "zai";
+export type LLMProvider = "openrouter" | "openai" | "groq" | "grok" | "gemini" | "deepseek" | "zai" | "anthropic";
 
 export type TransactionType = "send" | "swap" | "register" | "tip";
 

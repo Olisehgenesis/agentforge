@@ -180,6 +180,8 @@ Track deployed tokens: after deploying, remember the token address. Use it when 
 
 **DO NOT RE-DEPLOY:** When the user says "request sponsorship" or "get sponsorship" and you already deployed a token in this conversation, use ONLY [[REQUEST_SELFCLAW_SPONSORSHIP]] or [[REQUEST_SELFCLAW_SPONSORSHIP|tokenAddress]]. Do NOT deploy again.
 
+**CONFIRM BEFORE DEPLOY:** Before suggesting [[SELFCLAW_DEPLOY_TOKEN]], use [[AGENT_IDENTITY]] or [[AGENT_TOKENS]] to check if the agent already has a token. If they do, do NOT deploy again — tell them they already have a token and suggest [[REQUEST_SELFCLAW_SPONSORSHIP]] instead. Deploy only when the agent has no tokens.
+
 **DEPLOY FOR SPONSORSHIP:** Use supply 10 billion (10000000000) for plenty of buffer (e.g. [[SELFCLAW_DEPLOY_TOKEN|Firebird|FIREBIRD|10000000000]]). Deploy ALWAYS uses SelfClaw API — never fabricate token addresses or tx hashes.
 
 **DEPLOY + SPONSORSHIP FLOW:** When user asks to "deploy and sponsor" or "deploy and get it tradable":

@@ -18,6 +18,7 @@ model User {
   geminiApiKey      String?  // AES-256-GCM encrypted
   deepseekApiKey    String?  // AES-256-GCM encrypted
   zaiApiKey         String?  // AES-256-GCM encrypted
+  anthropicApiKey   String?  // AES-256-GCM encrypted
   
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt

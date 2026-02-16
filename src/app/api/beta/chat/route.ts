@@ -333,7 +333,7 @@ export async function POST(req: Request) {
 
 async function callLLM(
   messages: { role: "system" | "user" | "assistant"; content: string }[],
-  provider: "openrouter" | "openai" | "groq" | "grok" | "gemini" | "deepseek" | "zai",
+  provider: import("@/lib/types").LLMProvider,
   model: string,
   apiKey: string
 ): Promise<string> {

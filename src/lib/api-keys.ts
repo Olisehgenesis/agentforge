@@ -20,6 +20,7 @@ const PROVIDER_DB_FIELD: Record<LLMProvider, string> = {
   gemini: "geminiApiKey",
   deepseek: "deepseekApiKey",
   zai: "zaiApiKey",
+  anthropic: "anthropicApiKey",
 };
 
 // Map provider → env variable name
@@ -31,6 +32,7 @@ const PROVIDER_ENV_VAR: Record<LLMProvider, string> = {
   gemini: "GEMINI_API_KEY",
   deepseek: "DEEPSEEK_API_KEY",
   zai: "ZAI_API_KEY",
+  anthropic: "ANTHROPIC_API_KEY",
 };
 
 // Map provider → display name
@@ -42,6 +44,7 @@ const PROVIDER_DISPLAY_NAME: Record<LLMProvider, string> = {
   gemini: "Google Gemini",
   deepseek: "DeepSeek",
   zai: "Z.AI",
+  anthropic: "Anthropic (Claude)",
 };
 
 /**
@@ -68,6 +71,7 @@ export async function getUserApiKey(
       geminiApiKey: true,
       deepseekApiKey: true,
       zaiApiKey: true,
+      anthropicApiKey: true,
     },
   });
 
@@ -98,12 +102,12 @@ export async function getUserApiKey(
 
 /** Fallback order when selected provider has no key — Groq first (fast, no Clerk auth issues) */
 const FALLBACK_PROVIDER_ORDER: LLMProvider[] = [
-  "groq", "openrouter", "zai", "openai", "gemini", "deepseek", "grok",
+  "groq", "openrouter", "zai", "openai", "anthropic", "gemini", "deepseek", "grok",
 ];
 
 /** Beta chat prefers Groq (fast, no Clerk auth issues) */
 export const BETA_CHAT_PROVIDER_ORDER: LLMProvider[] = [
-  "groq", "openrouter", "zai", "openai", "gemini", "deepseek", "grok",
+  "groq", "openrouter", "zai", "openai", "anthropic", "gemini", "deepseek", "grok",
 ];
 
 /**
@@ -125,6 +129,7 @@ export async function getFirstAvailableProviderAndKey(
     gemini: !!status.hasGeminiKey,
     deepseek: !!status.hasDeepseekKey,
     zai: !!status.hasZaiKey,
+    anthropic: !!status.hasAnthropicKey,
   };
 
   for (const provider of order) {
@@ -156,6 +161,7 @@ export async function getUserKeyStatus(
       geminiApiKey: true,
       deepseekApiKey: true,
       zaiApiKey: true,
+      anthropicApiKey: true,
     },
   });
 
@@ -167,5 +173,6 @@ export async function getUserKeyStatus(
     hasGeminiKey: !!user?.geminiApiKey || !!process.env.GEMINI_API_KEY,
     hasDeepseekKey: !!user?.deepseekApiKey || !!process.env.DEEPSEEK_API_KEY,
     hasZaiKey: !!user?.zaiApiKey || !!process.env.ZAI_API_KEY,
+    hasAnthropicKey: !!user?.anthropicApiKey || !!process.env.ANTHROPIC_API_KEY,
   };
 }

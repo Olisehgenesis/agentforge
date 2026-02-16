@@ -43,7 +43,7 @@ export function BotConfigSection({ keyStatus }: BotConfigSectionProps) {
             </p>
             <div className="grid grid-cols-2 gap-2">
               {(
-                ["openrouter", "groq", "gemini", "openai", "grok", "deepseek", "zai"] as const
+                ["openrouter", "groq", "gemini", "openai", "anthropic", "grok", "deepseek", "zai"] as const
               ).map((provider) => {
                 const info = LLM_PROVIDER_INFO[provider];
                 const hasKey = !!keyStatus[
