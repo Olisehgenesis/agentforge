@@ -114,6 +114,16 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-gypsum font-mono pb-20">
+      {/* Top Utility Bar */}
+      <div className="w-full border-b-2 border-forest bg-white/50 backdrop-blur-sm px-6 py-2 flex justify-center md:justify-end gap-6 text-[10px] font-bold uppercase tracking-widest text-forest/60">
+        <Link href="/how-it-works" className="hover:text-forest transition-colors">
+          How it works
+        </Link>
+        <Link href="/docs" className="hover:text-forest transition-colors">
+          Docs
+        </Link>
+      </div>
+
       <section className="relative overflow-hidden pt-8 md:pt-12 px-6">
         <div className="max-w-4xl mx-auto text-center">
           {/* Badge - Neobrutalist style */}
@@ -154,23 +164,18 @@ export default function HomePage() {
               </div>
               <button
                 type="button"
-                onClick={handleTryClick}
-                disabled={demoState !== "idle"}
+                onClick={() => router.push("/dashboard/agents/new")}
                 className={cn(
-                  "shrink-0 h-full flex items-center justify-center gap-2 px-6 bg-forest text-white font-bold uppercase tracking-widest text-[10px] md:text-xs transition-all duration-200 border-l-2 border-forest",
-                  demoState === "idle" ? "hover:bg-forest/90 active:bg-forest/80" : "opacity-50 cursor-wait"
+                  "shrink-0 h-full flex items-center justify-center gap-2 px-6 bg-forest text-white font-bold uppercase tracking-widest text-[10px] md:text-xs transition-all duration-200 border-l-2 border-forest hover:bg-forest/90 active:bg-forest/80"
                 )}
               >
-                {demoState === "idle" ? (
-                  <>
-                    <Send className="w-3.5 h-3.5" />
-                    Deploy
-                  </>
-                ) : (
-                  "Deploying..."
-                )}
+                <Send className="w-3.5 h-3.5" />
+                Deploy
               </button>
             </div>
+            <p className="mt-4 text-[10px] font-bold uppercase tracking-widest text-forest/40">
+              Prefer chat? <Link href="/beta/create" className="text-forest/60 hover:text-forest underline underline-offset-2">Try Chat Deploy</Link>
+            </p>
           </div>
 
           {/* CTA Buttons */}
