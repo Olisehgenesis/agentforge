@@ -29,6 +29,7 @@ model User {
   updatedAt     DateTime @updatedAt
   agents        Agent[]
   agentTasks    AgentTask[]
+  channelBindings ChannelBinding[]
 }
 
 model Agent {
@@ -112,6 +113,9 @@ model ChannelBinding {
   agentId           String
   agent             Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
   
+  userId            String?
+  user              User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  
   // Channel identification
   channelType       String   // whatsapp, telegram, discord, imessage, web
   senderIdentifier  String   // e.g. "+15555550123", "telegram:12345", "discord:98765"
@@ -135,6 +139,7 @@ model ChannelBinding {
   // Unique constraint: one active binding per sender per channel
   @@unique([channelType, senderIdentifier, isActive])
   @@index([agentId])
+  @@index([userId])
   @@index([channelType, senderIdentifier])
 }
 

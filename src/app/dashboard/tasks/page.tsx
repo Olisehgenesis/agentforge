@@ -64,7 +64,7 @@ export default async function TasksPage() {
                             </div>
                             <div className="flex items-center gap-2">
                                 <div className="w-3 h-3 rounded-full bg-celo animate-pulse delay-150" />
-                                <span className="text-[10px] font-bold uppercase tracking-widest">Secret: ugandaisfake</span>
+                                <span className="text-[10px] font-bold uppercase tracking-widest">Secret: Authenticated via ENV</span>
                             </div>
                         </div>
                     </div>
