@@ -15,7 +15,7 @@ export async function POST(req: Request) {
     try {
         // 1. Authenticate
         const secret = req.headers.get("x-webhook-secret");
-        if (secret !== "ugandaisfake") {
+        if (secret !== process.env.WEBHOOK_SECRET) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
