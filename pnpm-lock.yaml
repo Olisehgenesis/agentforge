@@ -53,9 +53,6 @@ importers:
       ai:
         specifier: ^6.0.116
         version: 6.0.116(zod@4.3.6)
-      axios:
-        specifier: ^1.13.6
-        version: 1.13.6
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
