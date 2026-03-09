@@ -57,6 +57,8 @@ import {
   executeGenerateQR,
   executeListQRHistory,
   executeRequestFeedback,
+  executeCreatePriceTrigger,
+  executeCreateTimeTrigger,
 } from "./handlers";
 
 // ─── Handler Registry ─────────────────────────────────────────────────────────
@@ -105,6 +107,8 @@ for (const def of SKILL_DEFINITIONS) {
     case "generate_qr": registerHandler(def, executeGenerateQR); break;
     case "list_qr_history": registerHandler(def, executeListQRHistory); break;
     case "request_feedback": registerHandler(def, executeRequestFeedback); break;
+    case "create_price_trigger": registerHandler(def, executeCreatePriceTrigger); break;
+    case "create_time_trigger": registerHandler(def, executeCreateTimeTrigger); break;
     // send_celo and send_token are handled by executor.ts directly
   }
 }

@@ -615,6 +615,41 @@ const SKILL_DEFINITIONS: SkillDefinition[] = [
     requiresWallet: false,
     mutatesState: false,
   },
+  {
+    id: "create_price_trigger",
+    name: "Create Price Trigger",
+    description: "Create an automated task triggered by token price movements (e.g. buy when UGX increases 10%)",
+    category: "trading",
+    commandTag: "CREATE_PRICE_TRIGGER",
+    params: [
+      { name: "token", description: "Token symbol (e.g. UGXm, KESm, cUSD)", required: true, example: "UGXm" },
+      { name: "condition", description: "Condition: price_above, price_below, percentage_increase, percentage_decrease", required: true, example: "percentage_increase" },
+      { name: "target", description: "Target value or percentage (e.g. 10.0 for 10%)", required: true, example: "10.0" },
+      { name: "action", description: "The skill command to run (e.g. [[MENTO_SWAP|cUSD|KESm|50]])", required: true, example: "[[MENTO_SWAP|cUSD|KESm|50]]" },
+    ],
+    examples: [
+      { input: "swap 100 cUSD for KESm if KESm increases 10%", output: "[[CREATE_PRICE_TRIGGER|KESm|percentage_increase|10.0|[[MENTO_SWAP|cUSD|KESm|100]]]]" },
+    ],
+    requiresWallet: true,
+    mutatesState: true,
+  },
+  {
+    id: "create_time_trigger",
+    name: "Create Time Trigger",
+    description: "Create an automated task triggered at a specific time or recurring schedule (CRON)",
+    category: "trading",
+    commandTag: "CREATE_TIME_TRIGGER",
+    params: [
+      { name: "trigger", description: "ISO date-time or CRON expression (e.g. '2024-12-01T15:00:00Z' or '0 0 * * 5')", required: true, example: "0 0 * * 5" },
+      { name: "action", description: "The skill command to run (e.g. [[MENTO_SWAP|cUSD|KESm|50]])", required: true, example: "[[MENTO_SWAP|cUSD|KESm|50]]" },
+    ],
+    examples: [
+      { input: "buy 50 UGXm at 3:00 PM today", output: "[[CREATE_TIME_TRIGGER|2026-03-09T15:00:00.000Z|[[MENTO_SWAP|cUSD|UGXm|50]]]]" },
+      { input: "stake 10% of my cUSD every Friday", output: "[[CREATE_TIME_TRIGGER|0 0 * * 5|[[EXECUTE_STAKE|cUSD|0.1]]]]" },
+    ],
+    requiresWallet: true,
+    mutatesState: true,
+  },
 ];
 
 export default SKILL_DEFINITIONS;

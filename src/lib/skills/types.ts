@@ -25,6 +25,7 @@ export type SkillCategory =
   | "data"          // Balance checks, gas prices, token info
   | "defi"          // DeFi interactions (Ubeswap, etc.)
   | "social"        // Social / tipping
+  | "trading"       // Automated trading tasks
   | "forex";        // Forex trading / analysis
 
 // ─── Skill Definition ─────────────────────────────────────────────────────────

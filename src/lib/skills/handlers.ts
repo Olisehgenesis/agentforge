@@ -25,6 +25,7 @@ import {
 import type { SkillContext, SkillResult } from "./types";
 import { FEEDBACK_INLINE_MARKER, REGISTER_ERC8004_INLINE_MARKER } from "./feedback-marker";
 import { fmtAddr, fmtHash, fmtHeader, fmtSection, fmtBullet, fmtMeta, fmtCode } from "./formatDisplay";
+import { prisma } from "@/lib/db";
 
 // ─── Oracle / Rate handlers ──────────────────────────────────────────────────
 
@@ -195,7 +196,7 @@ export async function executeForexAnalysis(params: string[], _ctx: SkillContext)
   const { analyzeTrend, predictPrice, recordAllPriceSnapshots, getPriceHistory } = await import("@/lib/blockchain/price-tracker");
 
   // Always record fresh snapshots so trend data stays current
-  await recordAllPriceSnapshots().catch(() => {});
+  await recordAllPriceSnapshots().catch(() => { });
 
   try {
     if (pair && pair.includes("/")) {
@@ -388,7 +389,7 @@ export async function executePriceTrend(params: string[], _ctx: SkillContext): P
   const { analyzeTrend, analyzeAllTrends, recordAllPriceSnapshots } = await import("@/lib/blockchain/price-tracker");
 
   // Ensure we have fresh data
-  await recordAllPriceSnapshots().catch(() => {});
+  await recordAllPriceSnapshots().catch(() => { });
 
   try {
     if (pairInput.toUpperCase() === "ALL") {
@@ -439,7 +440,7 @@ export async function executePricePredict(params: string[], _ctx: SkillContext):
   const { predictPrice, predictAllPrices, recordAllPriceSnapshots } = await import("@/lib/blockchain/price-tracker");
 
   // Ensure we have fresh data
-  await recordAllPriceSnapshots().catch(() => {});
+  await recordAllPriceSnapshots().catch(() => { });
 
   try {
     if (pairInput.toUpperCase() === "ALL") {
@@ -497,7 +498,7 @@ export async function executePriceAlerts(params: string[], _ctx: SkillContext): 
   const { checkAlerts, recordAllPriceSnapshots } = await import("@/lib/blockchain/price-tracker");
 
   // Ensure we have fresh data
-  await recordAllPriceSnapshots().catch(() => {});
+  await recordAllPriceSnapshots().catch(() => { });
 
   try {
     const alerts = checkAlerts(threshold);
@@ -1397,6 +1398,113 @@ export async function executeRequestFeedback(_params: string[], _ctx: SkillConte
     data: { inline: true },
     display: FEEDBACK_INLINE_MARKER,
   };
+}
+
+export async function executeCreatePriceTrigger(
+  params: string[],
+  ctx: SkillContext
+): Promise<SkillResult> {
+  const [token, condition, target, action] = params;
+
+  if (!token || !condition || !target || !action) {
+    return {
+      success: false,
+      error: "Missing params",
+      display: "❌ Usage: [[CREATE_PRICE_TRIGGER|token|condition|target|action]]",
+    };
+  }
+
+  try {
+    const { getOracleRate } = await import("@/lib/blockchain/mento");
+    const currentRate = await getOracleRate(token);
+
+    const task = await prisma.agentTask.create({
+      data: {
+        agentId: ctx.agentId,
+        userId: (await prisma.agent.findUnique({ where: { id: ctx.agentId }, select: { ownerId: true } }))?.ownerId || "",
+        triggerType: "price",
+        tokenSymbol: token,
+        conditionType: condition,
+        targetValue: parseFloat(target),
+        baselinePrice: currentRate.rate,
+        actionType: "execute_skill",
+        actionPayload: action,
+        status: "active",
+      },
+    });
+
+    return {
+      success: true,
+      data: { taskId: task.id },
+      display: [
+        fmtHeader("Price Trigger Created", "📈"),
+        "",
+        `I've set up an automated task for **${token}**.`,
+        fmtBullet(`Condition: ${condition.replace("_", " ")} ${target}`),
+        fmtBullet(`Baseline price: ${currentRate.rate.toFixed(4)}`),
+        fmtBullet(`Action: ${action}`),
+        "",
+        fmtMeta(`Task ID: ${task.id.split("-")[0]}...`),
+      ].join("\n"),
+    };
+  } catch (error) {
+    return { success: false, error: String(error), display: `❌ Failed to create trigger: ${error}` };
+  }
+}
+
+export async function executeCreateTimeTrigger(
+  params: string[],
+  ctx: SkillContext
+): Promise<SkillResult> {
+  const [trigger, action] = params;
+
+  if (!trigger || !action) {
+    return {
+      success: false,
+      error: "Missing params",
+      display: "❌ Usage: [[CREATE_TIME_TRIGGER|trigger|action]]",
+    };
+  }
+
+  try {
+    const isCron = trigger.split(/\s+/).length === 5;
+    const executeAt = !isCron ? new Date(trigger) : null;
+    const cronSchedule = isCron ? trigger : null;
+
+    if (!isCron && isNaN(executeAt!.getTime())) {
+      return { success: false, error: "Invalid date", display: "❌ Invalid date format. Use ISO (e.g. 2026-03-09T15:00:00Z) or CRON (e.g. 0 0 * * 5)." };
+    }
+
+    const task = await prisma.agentTask.create({
+      data: {
+        agentId: ctx.agentId,
+        userId: (await prisma.agent.findUnique({ where: { id: ctx.agentId }, select: { ownerId: true } }))?.ownerId || "",
+        triggerType: isCron ? "cron" : "time",
+        executeAt,
+        cronSchedule,
+        actionType: "execute_skill",
+        actionPayload: action,
+        status: "active",
+      },
+    });
+
+    return {
+      success: true,
+      data: { taskId: task.id },
+      display: [
+        fmtHeader(isCron ? "Recurring Task Created" : "Scheduled Task Created", "⏱️"),
+        "",
+        isCron
+          ? `I've scheduled a recurring task with pattern: \`${cronSchedule}\`.`
+          : `I've scheduled a one-time task for: **${executeAt!.toLocaleString()}**.`,
+        fmtBullet(`Action: ${action}`),
+        "",
+        fmtMeta(`Task ID: ${task.id.split("-")[0]}...`),
+      ].join("\n"),
+    };
+  } catch (error) {
+    return { success: false, error: String(error), display: `❌ Failed to create trigger: ${error}` };
+  }
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────

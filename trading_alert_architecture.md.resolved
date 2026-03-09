@@ -1,0 +1,132 @@
+# AI Trading Agent System Architecture (Final)
+
+To fully support time-based execution ("buy at 3:00 PM", "stake periodically") alongside price-based execution ("buy when UGX increases 10%"), we need a hybrid Event-Driven + CRON architecture. 
+
+Here is the complete blueprint for your `agentforge` backend.
+
+## 1. Database Schema ([prisma/schema.prisma](file:///Users/olisehgenesis/Desktop/Code/aicelo/agentforge/prisma/schema.prisma))
+We rename `TradingAlert` to `AgentTasks` to reflect that these can be executed either via **Price Webhooks** or **Time/CRON schedules**.
+
+```prisma
+model AgentTask {
+  id             String   @id @default(uuid())
+  
+  // Relations
+  agentId        String
+  agent          Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Execution Triggers (Can be Price-Based AND/OR Time-Based)
+  triggerType    String   // "price", "time", "cron"
+  
+  // ---> If Price-Based
+  tokenSymbol    String?  // e.g., "UGXm"
+  conditionType  String?  // "price_above", "price_below", "percentage_increase"
+  targetValue    Float?   // e.g., 3000 (absolute) or 10.0 (percentage)
+  baselinePrice  Float?   // Price at the time of task creation
+  
+  // ---> If Time-Based / CRON
+  executeAt      DateTime? // Exact time to execute (e.g., "Buy at 3:00 PM")
+  cronSchedule   String?   // e.g., "0 0 * * *" (for "Stake periodically every day")
+  lastExecutedAt DateTime? // Track when it last ran to prevent double-execution
+  
+  // Execution Payload
+  actionType     String   // "alert_telegram", "execute_trade", "execute_transfer", "execute_stake"
+  actionPayload  String   @db.Text // JSON string containing smart contract ABI, params, or swap paths
+  
+  // State
+  status         String   @default("active") // "active", "completed", "cancelled", "failed"
+  
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  
+  @@index([tokenSymbol, status]) 
+  @@index([executeAt, status])
+}
+```
+
+## 2. The Two Execution Engines
+Your Next.js app will process these tasks using two separate mechanisms.
+
+### Engine A: The Price Webhook (For Market Conditions)
+*(Triggered by your external Node.js Price Monitor script)*
+
+```javascript
+// POST /api/webhooks/price-update
+export async function POST(req) {
+  // 1. Authenticate with x-webhook-secret header
+  if (req.headers.get("x-webhook-secret") !== process.env.WEBHOOK_SECRET) return new Response("Unauthorized", {status: 401});
+
+  const { token, price } = await req.json();
+
+  // 2. Find active PRICE tasks for this token
+  const tasks = await prisma.agentTask.findMany({
+    where: { triggerType: "price", tokenSymbol: token, status: "active" },
+    include: { agent: true }
+  });
+
+  for (const task of tasks) {
+      if (evaluatePriceCondition(task, price)) {
+          await executeBlockchainAction(task.agent, task.actionType, JSON.parse(task.actionPayload));
+          await prisma.agentTask.update({ where: { id: task.id }, data: { status: "completed" }});
+      }
+  }
+}
+```
+
+### Engine B: The CRON Job Runner (For Time Conditions)
+*(Runs internally on your server, e.g., using `node-cron` or Vercel Cron)*
+
+```javascript
+// Runs every 1 minute
+async function processTimeBasedTasks() {
+  const now = new Date();
+
+  // 1. Find One-Time Tasks ("Buy at 3:00 PM") whose time has passed
+  const pendingTasks = await prisma.agentTask.findMany({
+    where: { triggerType: "time", executeAt: { lte: now }, status: "active" },
+    include: { agent: true }
+  });
+
+  for (const task of pendingTasks) {
+      await executeBlockchainAction(task.agent, task.actionType, JSON.parse(task.actionPayload));
+      await prisma.agentTask.update({ where: { id: task.id }, data: { status: "completed" }});
+  }
+
+  // 2. Find Recurring Tasks ("Stake periodically") using cron-parser
+  const cronTasks = await prisma.agentTask.findMany({
+      where: { triggerType: "cron", status: "active" }
+  });
+  
+  for (const task of cronTasks) {
+      if (shouldRunCronNow(task.cronSchedule, task.lastExecutedAt)) {
+          await executeBlockchainAction(task.agent, task.actionType, JSON.parse(task.actionPayload));
+          await prisma.agentTask.update({ where: { id: task.id }, data: { lastExecutedAt: now }});
+      }
+  }
+}
+```
+
+## 3. The AI "Decision Engine" (Input)
+We give the AI agent two core tools that it can call based on the user's chat input:
+
+1. `create_price_trigger(token, condition, target, actionPayload)`
+   - *User says:* "Sell 100 cUSD for KESm if KESm increases 10%"
+2. `create_time_trigger(time_or_cron, actionPayload)`
+   - *User says:* "Buy 50 UGXm at 3:00 PM today"
+   - *User says:* "Stake 10% of my cUSD every Friday"
+
+The LLM is responsible for taking the natural language, constructing the `actionPayload` (the blockchain transaction specifics), and saving it to the database via these tools.
+
+---
+
+### Summary of Capabilities
+With this architecture, your users can instruct the AI to do **anything** on Celo:
+* 📉 **Price Alerts**: Telegram Webhook updates.
+* 📈 **Limit Orders**: "Buy when price drops below X".
+* ⏱️ **Scheduled Execution**: "Execute this swap tomorrow at noon".
+* 🔁 **Recurring Execution**: Drip investing (DCA), auto-compounding, or periodic staking.
+* 🔒 **Security**: All external price feeds are authenticated via Webhook Secrets.
+
+Does this hybrid architecture cover everything you need for the AI agents?
