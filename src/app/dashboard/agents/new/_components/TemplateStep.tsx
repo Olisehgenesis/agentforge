@@ -3,6 +3,7 @@
 import React from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Select } from "@/components/ui/select";
 import { Check, Zap } from "lucide-react";
 import { AGENT_TEMPLATES } from "@/lib/constants";
 import type { AgentTemplate } from "@/lib/types";
@@ -56,9 +57,28 @@ const TEMPLATE_SKILLS: Record<string, { name: string; icon: string; category: st
 interface TemplateStepProps {
   selectedTemplate: AgentTemplate | null;
   onSelect: (templateId: AgentTemplate) => void;
+  isSimplified?: boolean;
 }
 
-export function TemplateStep({ selectedTemplate, onSelect }: TemplateStepProps) {
+export function TemplateStep({ selectedTemplate, onSelect, isSimplified = false }: TemplateStepProps) {
+  if (isSimplified) {
+    return (
+      <div className="space-y-4">
+        <Select
+          value={selectedTemplate ?? ""}
+          onChange={(e) => onSelect(e.target.value as AgentTemplate)}
+          options={AGENT_TEMPLATES.map((t) => ({ value: t.id, label: t.name }))}
+          className="text-sm"
+        />
+        {selectedTemplate && (
+          <p className="text-sm text-forest/60">
+            {AGENT_TEMPLATES.find((t) => t.id === selectedTemplate)?.description}
+          </p>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8">
       <div className="grid md:grid-cols-2 gap-6">

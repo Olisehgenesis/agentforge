@@ -59,6 +59,7 @@ import {
   executeRequestFeedback,
   executeCreatePriceTrigger,
   executeCreateTimeTrigger,
+  executeCheckPrice,
 } from "./handlers";
 
 // ─── Handler Registry ─────────────────────────────────────────────────────────
@@ -109,6 +110,7 @@ for (const def of SKILL_DEFINITIONS) {
     case "request_feedback": registerHandler(def, executeRequestFeedback); break;
     case "create_price_trigger": registerHandler(def, executeCreatePriceTrigger); break;
     case "create_time_trigger": registerHandler(def, executeCreateTimeTrigger); break;
+    case "check_token_price": registerHandler(def, executeCheckPrice); break;
     // send_celo and send_token are handled by executor.ts directly
   }
 }
@@ -164,11 +166,11 @@ export function getSkillsForTemplate(templateId: string, disabledSkills: string[
   const QR_SKILLS = ["generate_qr", "list_qr_history"];
 
   const TEMPLATE_SKILLS: Record<string, string[]> = {
-    payment: ["send_celo", "send_token", "check_balance", "query_rate", "gas_price", ...CELO_MCP_SKILLS, ...SELFCLAW_SKILLS, ...QR_SKILLS, ...FEEDBACK_SKILLS],
-    trading: ["send_celo", "send_token", "check_balance", "query_rate", "query_all_rates", "mento_quote", "mento_swap", "gas_price", "forex_analysis", "portfolio_status", "price_track", "price_trend", "price_predict", "price_alerts", ...CELO_MCP_SKILLS, ...SELFCLAW_SKILLS, ...QR_SKILLS, ...FEEDBACK_SKILLS],
-    forex: ["send_celo", "send_token", "check_balance", "query_rate", "query_all_rates", "mento_quote", "mento_swap", "gas_price", "forex_analysis", "portfolio_status", "price_track", "price_trend", "price_predict", "price_alerts", ...CELO_MCP_SKILLS, ...SELFCLAW_SKILLS, ...QR_SKILLS, ...FEEDBACK_SKILLS],
+    payment: ["send_celo", "send_token", "check_balance", "query_rate", "check_token_price", "gas_price", ...CELO_MCP_SKILLS, ...SELFCLAW_SKILLS, ...QR_SKILLS, ...FEEDBACK_SKILLS],
+    trading: ["send_celo", "send_token", "check_balance", "query_rate", "check_token_price", "query_all_rates", "mento_quote", "mento_swap", "gas_price", "forex_analysis", "portfolio_status", "price_track", "price_trend", "price_predict", "price_alerts", "create_price_trigger", "create_time_trigger", ...CELO_MCP_SKILLS, ...SELFCLAW_SKILLS, ...QR_SKILLS, ...FEEDBACK_SKILLS],
+    forex: ["send_celo", "send_token", "check_balance", "query_rate", "check_token_price", "query_all_rates", "mento_quote", "mento_swap", "gas_price", "forex_analysis", "portfolio_status", "price_track", "price_trend", "price_predict", "price_alerts", "create_price_trigger", "create_time_trigger", ...CELO_MCP_SKILLS, ...SELFCLAW_SKILLS, ...QR_SKILLS, ...FEEDBACK_SKILLS],
     social: ["send_celo", "send_token", "check_balance", ...CELO_MCP_SKILLS, ...SELFCLAW_SKILLS, ...QR_SKILLS, ...FEEDBACK_SKILLS],
-    custom: ["send_celo", "send_token", "check_balance", "query_rate", "query_all_rates", "mento_quote", "gas_price", ...CELO_MCP_SKILLS, ...SELFCLAW_SKILLS, ...QR_SKILLS, ...FEEDBACK_SKILLS],
+    custom: ["send_celo", "send_token", "check_balance", "query_rate", "check_token_price", "query_all_rates", "mento_quote", "gas_price", "create_price_trigger", "create_time_trigger", ...CELO_MCP_SKILLS, ...SELFCLAW_SKILLS, ...QR_SKILLS, ...FEEDBACK_SKILLS],
   };
 
   const skillIds = TEMPLATE_SKILLS[templateId] || TEMPLATE_SKILLS.custom;

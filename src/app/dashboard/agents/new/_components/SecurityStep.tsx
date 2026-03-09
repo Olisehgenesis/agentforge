@@ -2,6 +2,7 @@
 
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Select } from "@/components/ui/select";
 import { AlertCircle, Check, Wallet, User, Clock, MessageSquare, Info } from "lucide-react";
 import { DEPLOYMENT_ATTRIBUTION } from "@/lib/constants";
 
@@ -12,9 +13,33 @@ interface SecurityStepProps {
   setSpendingLimit: (v: number) => void;
   walletOption: WalletOption;
   setWalletOption: (v: WalletOption) => void;
+  isSimplified?: boolean;
 }
 
-export function SecurityStep({ spendingLimit, setSpendingLimit, walletOption, setWalletOption }: SecurityStepProps) {
+export function SecurityStep({ spendingLimit, setSpendingLimit, walletOption, setWalletOption, isSimplified = false }: SecurityStepProps) {
+  if (isSimplified) {
+    // non‑technical view: minimal choices, defaults applied
+    return (
+      <div className="space-y-6">
+        <h2 className="text-2xl font-black">Security & funds</h2>
+        <div className="space-y-4">
+          <label className="text-sm font-medium">Wallet type</label>
+          <Select
+            value={walletOption}
+            onChange={(e) => setWalletOption(e.target.value as WalletOption)}
+            options={[
+              { value: "dedicated", label: "Dedicated vault (recommended)" },
+              { value: "owner", label: "Use my address (read‑only)" },
+              { value: "later", label: "Set up later" },
+            ]}
+            className="text-sm"
+          />
+        </div>
+        <p className="text-xs text-forest/60">Spending limit and channels will be configured with safe defaults after creation.</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-12">
       {/* Agent Wallet */}

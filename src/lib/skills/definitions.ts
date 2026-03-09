@@ -82,6 +82,25 @@ const SKILL_DEFINITIONS: SkillDefinition[] = [
     requiresWallet: false,
     mutatesState: false,
   },
+  {
+    id: "check_token_price",
+    name: "Check Token Price",
+    description: "Get the current USD price for any Celo token (UGXm, KESm, cUSD, etc.) with fallback API support",
+    category: "oracle",
+    commandTag: "CHECK_PRICE",
+    params: [
+      { name: "token", description: "Token symbol or address", required: true, example: "UGXm" },
+    ],
+    zodSchema: z.object({
+      token: z.string().describe("Token symbol or address (e.g. UGXm, cUSD)"),
+    }),
+    examples: [
+      { input: "what is the price of UGXm?", output: "[[CHECK_PRICE|UGXm]]" },
+      { input: "check price for 0xcebA93...118C", output: "[[CHECK_PRICE|0xcebA9300f2b948710d2653dD7B07f33A8B32118C]]" },
+    ],
+    requiresWallet: false,
+    mutatesState: false,
+  },
 
   // ── Mento Exchange Skills ─────────────────────────────────────────
   {

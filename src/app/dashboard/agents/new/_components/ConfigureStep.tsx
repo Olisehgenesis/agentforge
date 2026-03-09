@@ -112,44 +112,46 @@ export function ConfigureStep({
         <div className="grid lg:grid-cols-2 gap-12">
           {/* Left Column: Image & Name */}
           <div className="space-y-8">
-            <div className="space-y-4">
-              <label className="text-xs font-black uppercase tracking-widest text-forest">Agent Interface Image</label>
-              <div className="flex items-center gap-8">
-                <div className="relative w-32 h-32 border-4 border-forest bg-gypsum flex items-center justify-center overflow-hidden shadow-hard">
-                  {imagePreview ? (
-                    <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
-                  ) : (
-                    <Upload className="w-12 h-12 text-forest/20 stroke-[3px]" />
-                  )}
-                </div>
-                <div className="flex flex-col gap-3">
-                  <label className="cursor-pointer bg-forest text-white px-6 py-2 font-black uppercase text-sm shadow-hard hover:bg-celo hover:text-forest transition-colors active:translate-y-px active:shadow-hard-active">
-                    <input
-                      type="file"
-                      accept="image/png,image/jpeg,image/webp"
-                      className="hidden"
-                      onChange={(e) => {
-                        const f = e.target.files?.[0];
-                        if (f && f.size <= 5 * 1024 * 1024) setImageFile(f);
-                      }}
-                    />
-                    Upload Image
-                  </label>
-                  {imageFile && (
-                    <button
-                      type="button"
-                      onClick={() => setImageFile(null)}
-                      className="text-xs font-black uppercase tracking-widest text-forest/40 hover:text-forest underline"
-                    >
-                      Delete Asset
-                    </button>
-                  )}
-                  <p className="text-[10px] font-bold text-forest/40 leading-tight uppercase">
-                    Max 5MB • PNG / JPG / WEBP<br />ERC-8004 STANDARD
-                  </p>
+            {!isSimplified && (
+              <div className="space-y-4">
+                <label className="text-xs font-black uppercase tracking-widest text-forest">Agent Interface Image</label>
+                <div className="flex items-center gap-8">
+                  <div className="relative w-32 h-32 border-4 border-forest bg-gypsum flex items-center justify-center overflow-hidden shadow-hard">
+                    {imagePreview ? (
+                      <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
+                    ) : (
+                      <Upload className="w-12 h-12 text-forest/20 stroke-[3px]" />
+                    )}
+                  </div>
+                  <div className="flex flex-col gap-3">
+                    <label className="cursor-pointer bg-forest text-white px-6 py-2 font-black uppercase text-sm shadow-hard hover:bg-celo hover:text-forest transition-colors active:translate-y-px active:shadow-hard-active">
+                      <input
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp"
+                        className="hidden"
+                        onChange={(e) => {
+                          const f = e.target.files?.[0];
+                          if (f && f.size <= 5 * 1024 * 1024) setImageFile(f);
+                        }}
+                      />
+                      Upload Image
+                    </label>
+                    {imageFile && (
+                      <button
+                        type="button"
+                        onClick={() => setImageFile(null)}
+                        className="text-xs font-black uppercase tracking-widest text-forest/40 hover:text-forest underline"
+                      >
+                        Delete Asset
+                      </button>
+                    )}
+                    <p className="text-[10px] font-bold text-forest/40 leading-tight uppercase">
+                      Max 5MB • PNG / JPG / WEBP<br />ERC-8004 STANDARD
+                    </p>
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
 
             <div className="space-y-6">
               <div className="space-y-2">
@@ -162,7 +164,7 @@ export function ConfigureStep({
                   }
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="text-xl font-black uppercase"
+                  className={isSimplified ? "text-sm" : "text-xl font-black uppercase"}
                 />
                 <div className="flex items-center justify-between">
                   <p className="text-[10px] font-bold text-forest/40 uppercase tracking-widest">
@@ -195,7 +197,7 @@ export function ConfigureStep({
                   placeholder="Operational parameters and purpose..."
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  className="min-h-[120px]"
+                  className={isSimplified ? "min-h-[80px] text-sm" : "min-h-[120px]"}
                 />
                 <p className="text-[10px] font-bold text-forest/40 uppercase tracking-widest">
                   Metadata broadcast to registry ({description.length} chars)
@@ -362,7 +364,7 @@ export function ConfigureStep({
       )}
 
       {/* Template-specific settings - redesigned */}
-      {currentTemplate && selectedTemplate !== "custom" && (
+      {!isSimplified && currentTemplate && selectedTemplate !== "custom" && (
         <div className="space-y-8">
           <div className="flex items-center gap-4 border-b-4 border-forest pb-4">
             <div className="w-12 h-12 bg-forest text-white flex items-center justify-center font-black text-2xl">

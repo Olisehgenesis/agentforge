@@ -1415,8 +1415,8 @@ export async function executeCreatePriceTrigger(
   }
 
   try {
-    const { getOracleRate } = await import("@/lib/blockchain/mento");
-    const currentRate = await getOracleRate(token);
+    const { getTokenPrice } = await import("@/lib/blockchain/prices");
+    const price = await getTokenPrice(token);
 
     const task = await prisma.agentTask.create({
       data: {
@@ -1426,7 +1426,7 @@ export async function executeCreatePriceTrigger(
         tokenSymbol: token,
         conditionType: condition,
         targetValue: parseFloat(target),
-        baselinePrice: currentRate.rate,
+        baselinePrice: price,
         actionType: "execute_skill",
         actionPayload: action,
         status: "active",
@@ -1441,7 +1441,7 @@ export async function executeCreatePriceTrigger(
         "",
         `I've set up an automated task for **${token}**.`,
         fmtBullet(`Condition: ${condition.replace("_", " ")} ${target}`),
-        fmtBullet(`Baseline price: ${currentRate.rate.toFixed(4)}`),
+        fmtBullet(`Baseline price: ${price.toFixed(4)}`),
         fmtBullet(`Action: ${action}`),
         "",
         fmtMeta(`Task ID: ${task.id.split("-")[0]}...`),
@@ -1508,6 +1508,34 @@ export async function executeCreateTimeTrigger(
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
+
+export async function executeCheckPrice(
+  params: string[],
+  _ctx: SkillContext
+): Promise<SkillResult> {
+  const [token] = params;
+  if (!token) return { success: false, error: "Missing token", display: "❌ Usage: [[CHECK_PRICE|token]]" };
+
+  try {
+    const { getTokenPrice } = await import("@/lib/blockchain/prices");
+    const price = await getTokenPrice(token);
+
+    return {
+      success: true,
+      data: { token, price },
+      display: [
+        fmtHeader("Token Price Info", "💰"),
+        "",
+        `The current price of **${token}** is:`,
+        `# $${price.toFixed(6)}`,
+        "",
+        fmtMeta(`Source: DexScreener/CoinGecko (Aggregated)`),
+      ].join("\n"),
+    };
+  } catch (error) {
+    return { success: false, error: String(error), display: `❌ Failed to fetch price for ${token}: ${error}` };
+  }
+}
 
 export function formatPeriodLabel(minutes: number): string {
   if (minutes < 60) return `${minutes} minutes`;

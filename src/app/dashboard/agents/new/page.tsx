@@ -1,32 +1,25 @@
 "use client";
 
 import React from "react";
-import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useAccount } from "wagmi";
 import { type Address } from "viem";
 import { Button } from "@/components/ui/button";
-import { Tabs } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import {
   ArrowLeft,
-  ArrowRight,
-  Sparkles,
-  Shield,
-  Zap,
-  Rocket,
   Loader2,
 } from "lucide-react";
-import { AGENT_TEMPLATES, LLM_MODELS } from "@/lib/constants";
+import { AGENT_TEMPLATES } from "@/lib/constants";
 import type { AgentTemplate, LLMProvider, AgentConfig } from "@/lib/types";
 import { useERC8004 } from "@/hooks/useERC8004";
+import { DeploySuccessFeedback } from "./_components";
+
+// image generator imports
 import {
-  TemplateStep,
-  ConfigureStep,
-  SecurityStep,
-  ReviewStep,
-  DeploySuccessFeedback,
-  type WalletOption,
-} from "./_components";
+  generateNFTSVG,
+} from "@/lib/svg-generator";
 
 
 export default function NewAgentPage() {
@@ -57,16 +50,52 @@ export default function NewAgentPage() {
   }, [checkDeployed, currentChainId]);
 
   // ── Form State ──────────────────────────────────────────────────────
-  const [selectedTemplate, setSelectedTemplate] = React.useState<AgentTemplate | null>(null);
+  // simplified form state – single page form
   const [name, setName] = React.useState("");
+  const [imageFile, setImageFile] = React.useState<File | null>(null);
+  const [agentType, setAgentType] = React.useState<AgentTemplate | "">("");
+  const [subtype, setSubtype] = React.useState("");
+
+
+  // informational text per type
+  const TYPE_INFO: Record<string, string> = {
+    payment: "Payment agents can send CELO or tokens, check balances, and the AI can help users make transactions securely.",
+    trading: "Trading agents can query rates, swap tokens, and the AI can recommend trades or analyze markets.",
+    social: "Social agents can send tips, manage balances, and the AI can interact conversationally with users.",
+    custom: "Custom agents start blank; AI capabilities depend on your system prompt and configuration.",
+  };
+
+  // choose a random image by generating an SVG via generateNFTSVG and rasterizing it
+  async function chooseRandomSVG() {
+    const { svg } = generateNFTSVG();
+    const dataUrl = 'data:image/svg+xml;base64,' + btoa(svg);
+    const res = await fetch(dataUrl);
+    const blob = await res.blob();
+    setImageFile(new File([blob], "image.png", { type: "image/png" }));
+  }
+
+  // alias for UI
+  const chooseRandomImage = chooseRandomSVG;
+
+  // pick one on mount
+  React.useEffect(() => {
+    chooseRandomImage();
+  }, []);
+
+  // pick one on mount
+  React.useEffect(() => {
+    chooseRandomImage();
+  }, []);
+
+  // legacy/hidden state kept to satisfy API, but never shown
   const [description, setDescription] = React.useState("");
+  const [selectedTemplate, setSelectedTemplate] = React.useState<AgentTemplate | null>(null);
   const [systemPrompt, setSystemPrompt] = React.useState("");
   const [llmProvider, setLlmProvider] = React.useState<LLMProvider>("groq");
   const [llmModel, setLlmModel] = React.useState("llama-3.3-70b-versatile");
   const [spendingLimit, setSpendingLimit] = React.useState(100);
   const [config, setConfig] = React.useState<AgentConfig>({});
-  const [imageFile, setImageFile] = React.useState<File | null>(null);
-  const [walletOption, setWalletOption] = React.useState<WalletOption>("dedicated");
+  const [walletOption, setWalletOption] = React.useState<"dedicated" | "owner" | "later">("dedicated");
   const [apiKey, setApiKey] = React.useState("");
   const [apiKeySaving, setApiKeySaving] = React.useState(false);
   const [apiKeySaved, setApiKeySaved] = React.useState(false);
@@ -121,6 +150,7 @@ export default function NewAgentPage() {
     return `#${hex}`;
   };
 
+  // legacy stub: we no longer use template selection directly
   const handleTemplateSelect = (templateId: AgentTemplate) => {
     setSelectedTemplate(templateId);
     const template = AGENT_TEMPLATES.find((t) => t.id === templateId);
@@ -131,6 +161,18 @@ export default function NewAgentPage() {
       setDescription(template.description);
     }
   };
+
+  React.useEffect(() => {
+    if (agentType) {
+      setSelectedTemplate(agentType);
+    }
+  }, [agentType]);
+
+  React.useEffect(() => {
+    if (subtype) {
+      setDescription(subtype);
+    }
+  }, [subtype]);
 
   const handleSaveApiKey = async () => {
     if (!address || !apiKey) return;
@@ -165,15 +207,15 @@ export default function NewAgentPage() {
     setDeployStatus("creating");
 
     try {
-      // Create agent in DB
+      // Create agent in DB – use simplified values if provided
       const agentName = name.trim() || generateRandomName();
       const createRes = await fetch("/api/agents", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: agentName,
-          description,
-          templateType: selectedTemplate,
+          description: subtype || description,
+          templateType: (agentType as AgentTemplate) || selectedTemplate,
           systemPrompt,
           llmProvider,
           llmModel,
@@ -238,33 +280,18 @@ export default function NewAgentPage() {
   };
 
   // ── Derived ─────────────────────────────────────────────────────────
-  const canProceed = selectedTemplate && name && spendingLimit > 0;
+  const canDeploy = name.trim().length > 0 && agentType !== "";
 
   // ── Render ──────────────────────────────────────────────────────────
   return (
-    <div className="max-w-5xl mx-auto space-y-12">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-8 border-b-4 border-forest">
-        <div className="flex items-center gap-6">
-          <button
-            onClick={() => router.back()}
-            className="w-16 h-16 border-4 border-forest bg-white flex items-center justify-center hover:bg-celo transition-colors shadow-hard active:translate-y-px active:shadow-hard-active cursor-pointer"
-          >
-            <ArrowLeft className="w-8 h-8 stroke-[3px]" />
-          </button>
-          <div>
-            <h1 className="text-6xl font-black uppercase tracking-tighter text-forest leading-none">
-              Create
-            </h1>
-            <p className="text-forest font-bold uppercase tracking-widest mt-4">
-              Initialize New Autonomous Node
-            </p>
-          </div>
-        </div>
-      </div>
+    <div className="max-w-xl mx-auto space-y-8 py-12">
+      <button onClick={() => router.back()} className="text-sm text-forest hover:underline">
+        ← Back
+      </button>
+      <h1 className="text-4xl font-bold text-center">Create New Agent</h1>
 
       {deployStatus === "done" && createdAgentId ? (
-        <div className="bg-white border-4 border-forest shadow-hard p-12">
+        <div className="bg-white border border-forest shadow p-8">
           <DeploySuccessFeedback
             chainId={currentChainId}
             giveFeedback={giveFeedback}
@@ -279,88 +306,80 @@ export default function NewAgentPage() {
           />
         </div>
       ) : (
-        <>
-          <div className="space-y-12">
-            <section className="space-y-6">
-              <div className="flex items-center gap-4">
-                <div className="w-10 h-10 bg-forest text-white flex items-center justify-center font-black">01</div>
-                <h2 className="text-2xl font-black uppercase tracking-tighter">Choose Purpose</h2>
-              </div>
-              <TemplateStep
-                selectedTemplate={selectedTemplate}
-                onSelect={handleTemplateSelect}
+        <div className="bg-white p-8 shadow rounded-lg">
+          <form className="space-y-8">
+            <div className="space-y-4">
+              <h2 className="text-2xl font-semibold">Agent name & details</h2>
+              <Input
+                label="Name"
+                placeholder="My Agent"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="text-sm"
               />
-            </section>
-
-            <section className="space-y-6">
-              <div className="flex items-center gap-4">
-                <div className="w-10 h-10 bg-forest text-white flex items-center justify-center font-black">02</div>
-                <h2 className="text-2xl font-black uppercase tracking-tighter">Identity</h2>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Picture (optional)</label>
+                <div className="relative border-2 border-dashed border-forest rounded-lg p-4 flex flex-col items-center justify-center cursor-pointer hover:bg-forest/5 transition-colors">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f && f.size <= 5 * 1024 * 1024) setImageFile(f);
+                    }}
+                  />
+                  {imageFile ? (
+                    <img
+                      src={URL.createObjectURL(imageFile)}
+                      alt="preview"
+                      className="w-48 h-48 object-cover rounded mb-2 image-rendering-pixelated"
+                    />
+                  ) : (
+                    <span className="text-xs text-forest/60">Click or drag image here</span>
+                  )}
+                </div>
               </div>
-              <ConfigureStep
-                selectedTemplate={selectedTemplate}
-                name={name}
-                setName={setName}
-                description={description}
-                setDescription={setDescription}
-                systemPrompt={systemPrompt}
-                setSystemPrompt={setSystemPrompt}
-                llmProvider={llmProvider}
-                setLlmProvider={setLlmProvider}
-                llmModel={llmModel}
-                setLlmModel={setLlmModel}
-                config={config}
-                setConfig={setConfig}
-                imageFile={imageFile}
-                setImageFile={setImageFile}
-                apiKey={apiKey}
-                setApiKey={setApiKey}
-                apiKeySaving={apiKeySaving}
-                apiKeySaved={apiKeySaved}
-                hasKeyForProvider={hasKeyForProvider}
-                onSaveApiKey={handleSaveApiKey}
-                onResetKey={() => setKeyStatus((prev) => ({ ...prev, [llmProvider]: false }))}
-                isSimplified
+            </div>
+
+            <div className="space-y-4">
+              <h2 className="text-2xl font-semibold">Type &amp; subtype</h2>
+              <Select
+                label="Type"
+                value={agentType}
+                onChange={(e) => setAgentType(e.target.value as AgentTemplate)}
+                options={[{ value: "", label: "Select type" },
+                  ...AGENT_TEMPLATES.map((t) => ({ value: t.id, label: t.name }))]}
+                className="text-sm"
               />
-            </section>
-
-            <section className="space-y-6">
-              <div className="flex items-center gap-4">
-                <div className="w-10 h-10 bg-forest text-white flex items-center justify-center font-black">03</div>
-                <h2 className="text-2xl font-black uppercase tracking-tighter">Guardrails</h2>
-              </div>
-              <SecurityStep
-                spendingLimit={spendingLimit}
-                setSpendingLimit={setSpendingLimit}
-                walletOption={walletOption}
-                setWalletOption={setWalletOption}
-              />
-            </section>
-          </div>
-
-          <div className="pt-12 pb-24 border-t-4 border-forest flex flex-col items-center gap-6">
-            {deployError && (
-              <div className="w-full p-4 border-2 border-red-600 bg-red-50 text-red-600 font-bold uppercase text-sm">
-                Error: {deployError}
-              </div>
-            )}
-            <Button
-              size="lg"
-              onClick={handleDeploy}
-              disabled={!canProceed || isDeploying}
-              className="h-20 px-24 text-2xl w-full md:w-auto"
-            >
-              {isDeploying ? (
-                <><Loader2 className="w-8 h-8 animate-spin mr-3" /> {deployStatus.toUpperCase()}...</>
-              ) : (
-                <>CREATE & DEPLOY AGENT <Rocket className="ml-3 w-8 h-8" /></>
+              {agentType && (
+                <p className="text-xs text-forest/60 mt-1">
+                  {TYPE_INFO[agentType] || ""}
+                </p>
               )}
-            </Button>
-            <p className="text-[10px] font-bold text-forest/40 uppercase tracking-[0.2em]">
-              On-chain registration requires wallet signature
-            </p>
-          </div>
-        </>
+              {agentType && (
+                <Input
+                  label="Subtype / description"
+                  placeholder="e.g. customer service bot"
+                  value={subtype}
+                  onChange={(e) => setSubtype(e.target.value)}
+                  className="text-sm"
+                />
+              )}
+            </div>
+
+            <div className="flex justify-end">
+              <button
+                type="button"
+                className="px-4 py-2 bg-forest text-white rounded"
+                onClick={handleDeploy}
+                disabled={!canDeploy || isDeploying}
+              >
+                {isDeploying ? "Creating…" : "Create Agent"}
+              </button>
+            </div>
+          </form>
+        </div>
       )}
     </div>
   );

@@ -152,18 +152,18 @@ export const CELO_TOKENS = {
 export const FEE_CURRENCIES: Record<number, Record<string, { feeCurrency: string; token: string; symbol: string; decimals: number }>> = {
   // Celo Mainnet
   42220: {
-    cUSD:  { feeCurrency: "0x765DE816845861e75A25fCA122bb6898B8B1282a", token: "0x765DE816845861e75A25fCA122bb6898B8B1282a", symbol: "cUSD",  decimals: 18 },
-    cEUR:  { feeCurrency: "0xD8763CBa276a3738E6DE85b4b3bF5FDed6D6cA73", token: "0xD8763CBa276a3738E6DE85b4b3bF5FDed6D6cA73", symbol: "cEUR",  decimals: 18 },
+    cUSD: { feeCurrency: "0x765DE816845861e75A25fCA122bb6898B8B1282a", token: "0x765DE816845861e75A25fCA122bb6898B8B1282a", symbol: "cUSD", decimals: 18 },
+    cEUR: { feeCurrency: "0xD8763CBa276a3738E6DE85b4b3bF5FDed6D6cA73", token: "0xD8763CBa276a3738E6DE85b4b3bF5FDed6D6cA73", symbol: "cEUR", decimals: 18 },
     cREAL: { feeCurrency: "0xe8537a3d056DA446677B9E9d6c5dB704EaAb4787", token: "0xe8537a3d056DA446677B9E9d6c5dB704EaAb4787", symbol: "cREAL", decimals: 18 },
-    USDC:  { feeCurrency: "0x2F25deB3848C207fc8E0c34035B3Ba7fC157602B", token: "0xcebA9300f2b948710d2653dD7B07f33A8B32118C", symbol: "USDC",  decimals: 6 },  // adapter
-    USDT:  { feeCurrency: "0x0e2a3e05bc9a16f5292a6170456a710cb89c6f72", token: "0x48065fbbe25f71c9282ddf5e1cd6d6a887483d5e", symbol: "USDT",  decimals: 6 },  // adapter
+    USDC: { feeCurrency: "0x2F25deB3848C207fc8E0c34035B3Ba7fC157602B", token: "0xcebA9300f2b948710d2653dD7B07f33A8B32118C", symbol: "USDC", decimals: 6 },  // adapter
+    USDT: { feeCurrency: "0x0e2a3e05bc9a16f5292a6170456a710cb89c6f72", token: "0x48065fbbe25f71c9282ddf5e1cd6d6a887483d5e", symbol: "USDT", decimals: 6 },  // adapter
   },
   // Celo Sepolia Testnet
   11142220: {
-    cUSD:  { feeCurrency: "0x874069Fa1Eb16D44d622F2e0Ca25eeA172369bC1", token: "0x874069Fa1Eb16D44d622F2e0Ca25eeA172369bC1", symbol: "cUSD",  decimals: 18 },
-    cEUR:  { feeCurrency: "0x10c892A6EC43a53E45D0B916B4b7D383B1b78C0F", token: "0x10c892A6EC43a53E45D0B916B4b7D383B1b78C0F", symbol: "cEUR",  decimals: 18 },
+    cUSD: { feeCurrency: "0x874069Fa1Eb16D44d622F2e0Ca25eeA172369bC1", token: "0x874069Fa1Eb16D44d622F2e0Ca25eeA172369bC1", symbol: "cUSD", decimals: 18 },
+    cEUR: { feeCurrency: "0x10c892A6EC43a53E45D0B916B4b7D383B1b78C0F", token: "0x10c892A6EC43a53E45D0B916B4b7D383B1b78C0F", symbol: "cEUR", decimals: 18 },
     cREAL: { feeCurrency: "0xE4D517785D091D3c54818832dB6094bcc2744545", token: "0xE4D517785D091D3c54818832dB6094bcc2744545", symbol: "cREAL", decimals: 18 },
-    USDC:  { feeCurrency: "0x4822e58de6f5e485eF90df51C41CE01721331dC0", token: "0x2F25deB3848C207fc8E0c34035B3Ba7fC157602B", symbol: "USDC",  decimals: 6 },  // adapter
+    USDC: { feeCurrency: "0x4822e58de6f5e485eF90df51C41CE01721331dC0", token: "0x2F25deB3848C207fc8E0c34035B3Ba7fC157602B", symbol: "USDC", decimals: 6 },  // adapter
   },
 } as const;
 
@@ -321,11 +321,10 @@ Examples:
 - "Sending 5 cUSD now. [[SEND_TOKEN|cUSD|0xabc...def|5]]"
 
 Rules:
-- Always confirm with the user before executing transactions over $10
-- Supported currencies: CELO, cUSD, cEUR, cREAL
-- The recipient MUST be a valid 0x address (42 characters). If the user provides an ENS name, ask for the actual address.
-- Never reveal private keys or sensitive wallet information
 - After including the command tag, the system will execute the transaction and replace the tag with a receipt
+
+**Automated Tasks & Heartbeats:** 
+You are powered by a 1s Heartbeat Engine. You can now create automated tasks that run without user presence. Use [[CREATE_PRICE_TRIGGER|token|condition|target|action]] for price-based tasks (e.g. "buy if price drops 5%") and [[CREATE_TIME_TRIGGER|trigger|action]] for scheduled tasks (e.g. "stake every Friday"). Monitor these on your dashboard. Use [[CHECK_PRICE|token]] to get accurate market data before setting triggers.
 
 **SelfClaw (Agent Economy):** You can do all SelfClaw actions via chat — no dashboard needed. Show pipeline [[AGENT_IDENTITY]], register wallet [[SELFCLAW_REGISTER_WALLET]], deploy token [[SELFCLAW_DEPLOY_TOKEN|name|symbol|supply]], log revenue [[SELFCLAW_LOG_REVENUE|amount|source]], log cost [[SELFCLAW_LOG_COST|amount|category]], show token info [[AGENT_TOKENS]], request sponsorship [[REQUEST_SELFCLAW_SPONSORSHIP]]. Token deploy uses SelfClaw API: get unsigned tx → sign → register. Mention these when describing what you can do.`,
     defaultConfig: {
