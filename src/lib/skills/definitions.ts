@@ -170,6 +170,40 @@ const SKILL_DEFINITIONS: SkillDefinition[] = [
     mutatesState: false,
   },
 
+  {
+    id: "synthesis_register",
+    name: "Synthesis Hackathon Register",
+    description: "Register this agent with the Synthesis hackathon API and store the returned apiKey + on-chain identity.",
+    category: "data",
+    commandTag: "SYNTHESIS_REGISTER",
+    params: [
+      { name: "name", description: "Agent name", required: true, example: "My Agent" },
+      { name: "description", description: "What the agent does", required: true, example: "A trading assistant for Celo" },
+      { name: "agentHarness", description: "Agent harness (openclaw, copilot, etc.)", required: true, example: "openclaw" },
+      { name: "model", description: "Primary model name (e.g. gpt-4o)", required: true, example: "gpt-4o" },
+      { name: "humanName", description: "Your full name", required: true, example: "Jane Doe" },
+      { name: "humanEmail", description: "Your email", required: true, example: "jane@example.com" },
+      { name: "problemToSolve", description: "What problem you are solving", required: true, example: "Helping users trade better on Celo" },
+      { name: "social", description: "Social handle (optional)", required: false, example: "@jane" },
+      { name: "background", description: "Background (Builder/Product/Designer/etc.)", required: false, example: "Builder" },
+      { name: "cryptoExperience", description: "Crypto experience (yes/no/a little)", required: false, example: "a little" },
+      { name: "aiAgentExperience", description: "AI agent experience (yes/no/a little)", required: false, example: "yes" },
+      { name: "codingComfort", description: "Coding comfort 1-10", required: false, example: "7" },
+    ],
+    examples: [
+      {
+        input: "register this agent for the Synthesis hackathon",
+        output: "[[SYNTHESIS_REGISTER|My Agent|A trading assistant on Celo|openclaw|gpt-4o|Jane Doe|jane@example.com|Helping users trade better on Celo|@jane|Builder|a little|yes|7]]",
+      },
+      {
+        input: "I only know my email so far",
+        output: "[[SYNTHESIS_REGISTER|humanEmail=jane@example.com]]",
+      },
+    ],
+    requiresWallet: false,
+    mutatesState: true,
+  },
+
   // ── Forex / Analysis Skills ───────────────────────────────────────
   {
     id: "forex_analysis",

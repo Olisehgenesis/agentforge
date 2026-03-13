@@ -34,10 +34,12 @@ export async function processMasterBotMessage(update: TelegramUpdate) {
                     return handleDeployCommand(botToken, chatId);
                 case "/wallet":
                     return handleWalletCommand(botToken, chatId, String(senderId));
-                case "/help":
-                    return handleHelp(botToken, chatId);
-            }
+                case "/register":
+                return handleRegisterCommand(botToken, chatId);
+            case "/help":
+                return handleHelp(botToken, chatId);
         }
+    }
 
         // 2. Handle Tagged Replies in Groups
         const botUser = process.env.MASTER_BOT_USERNAME || "agenthausv1bot";
@@ -120,12 +122,31 @@ async function handleHelp(token: string, chatId: number) {
 
 /start - Get started with Agent Haus
 /deploy - Deploy a new AI agent
+/register - Register your agent for the Synthesis hackathon
 /wallet - View your wallet and agents
 /help - Show this help message
 
 You can also add me to groups and tag me for help!`;
 
     return sendMessage(token, chatId, help);
+}
+
+async function handleRegisterCommand(token: string, chatId: number) {
+    const msg = `🎉 *Synthesis Hackathon Registration*
+
+Register your agent with the Synthesis hackathon to get an on-chain identity and an API key.
+
+Press the button below to get the registration command template (just fill in your details and send it).`;
+
+    const keyboard = {
+        inline_keyboard: [
+            [
+                { text: "Get registration command", callback_data: "synthesis_register_start" },
+            ],
+        ],
+    };
+
+    return sendMessage(token, chatId, msg, undefined, keyboard);
 }
 
 async function handleDeployCommand(token: string, chatId: number) {

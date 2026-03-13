@@ -55,7 +55,28 @@ bot.command("start", (ctx) => {
 bot.command("help", (ctx) => {
     return ctx.reply("Available commands:\n/start - Welcome message\n/help - Show this help");
 });
+// ─── Callback Query / Inline Button Handling ──────────────────────────────────
 
+bot.callbackQuery("synthesis_register_start", async (ctx) => {
+    try {
+        await ctx.answerCallbackQuery({ text: "Here is the registration command template." });
+
+        const template = `🎉 *Synthesis Hackathon Registration*
+
+To register, send the following message (fill in your details):
+
+` +
+            "`[[SYNTHESIS_REGISTER|My Agent|A trading assistant on Celo|openclaw|gpt-4o|Jane Doe|jane@example.com|Helping users trade better on Celo|@jane|Builder|a little|yes|7]]`" +
+            `
+
+Once you've sent this, I will call the Synthesis API and save your API key and on-chain identity.`;
+
+        await ctx.reply(template, { parse_mode: "Markdown" });
+    } catch (err) {
+        logger.error({ error: err, update: ctx.update }, "Failed to handle synthesis register callback");
+        await ctx.reply("Sorry, I couldn't generate the registration command. Try again or just type /register.");
+    }
+});
 // ─── Message Handling ────────────────────────────────────────────────────────
 
 bot.on("message", async (ctx) => {

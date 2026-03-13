@@ -69,6 +69,8 @@ export interface SkillContext {
   agentId: string;
   walletDerivationIndex: number | null;
   agentWalletAddress: string | null;
+  /** When set, indicates the user (owner) who initiated this request (e.g. system bot context) */
+  contextUserId?: string;
 }
 
 export interface SkillResult {

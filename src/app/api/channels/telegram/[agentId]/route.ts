@@ -22,6 +22,7 @@ import {
   verifyWebhookSecret,
   sendMessage,
   sendTypingAction,
+  answerCallbackQuery,
   type TelegramUpdate,
 } from "@/lib/channels/telegram";
 import { decrypt } from "@/lib/crypto";
@@ -92,9 +93,52 @@ export async function POST(
     // Parse the Telegram update
     const update: TelegramUpdate = await request.json();
     if (debug) console.log(`[TG DEBUG] Update:`, JSON.stringify(update));
+
+    // Handle inline button presses (callback queries)
+    if (update.callback_query) {
+      const callbackData = update.callback_query.data;
+      const callbackId = update.callback_query.id;
+      const chatId = update.callback_query.message?.chat.id || update.callback_query.from.id;
+      const botToken = decrypt(agent.telegramBotToken);
+      await answerCallbackQuery(botToken, callbackId, "Processing...");
+
+      if (callbackData === "synthesis_register_start") {
+        const template = `🎉 *Synthesis Hackathon Registration*
+
+To register, send the following message (fill in your details):
+
+` +
+          "`[[SYNTHESIS_REGISTER|My Agent|A trading assistant on Celo|openclaw|gpt-4o|Jane Doe|jane@example.com|Helping users trade better on Celo|@jane|Builder|a little|yes|7]]`" +
+          `
+
+Once you send this, I will register the agent and store your API key.`;
+
+        await sendMessage(botToken, chatId, template);
+      }
+
+      return NextResponse.json({ ok: true });
+    }
+
     const incoming = parseUpdate(update, agentId);
     if (!incoming) {
       if (debug) console.log(`[TG DEBUG] Failed to parse update or no text content`);
+      return NextResponse.json({ ok: true });
+    }
+
+    // Provide quick help for registration commands
+    const normalized = incoming.text.trim().toLowerCase();
+    if (normalized.startsWith("/register") || normalized.startsWith("/synthesis")) {
+      const botToken = decrypt(agent.telegramBotToken);
+      const template = `🎉 *Synthesis Hackathon Registration*
+
+To register, send the following message (fill in your details):
+
+` +
+        "`[[SYNTHESIS_REGISTER|My Agent|A trading assistant on Celo|openclaw|gpt-4o|Jane Doe|jane@example.com|Helping users trade better on Celo|@jane|Builder|a little|yes|7]]`" +
+        `
+
+Once you send this, I will register the agent and store your API key.`;
+      await sendMessage(botToken, incoming.chatId, template);
       return NextResponse.json({ ok: true });
     }
 

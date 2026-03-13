@@ -164,7 +164,8 @@ export async function sendMessage(
   botToken: string,
   chatId: number | string,
   text: string,
-  replyToMessageId?: number
+  replyToMessageId?: number,
+  replyMarkup?: Record<string, unknown>
 ): Promise<TelegramMessage> {
   // Telegram has a 4096 char limit per message
   // If the response is longer, split into chunks
@@ -172,24 +173,46 @@ export async function sendMessage(
   let lastMsg: TelegramMessage | null = null;
 
   for (let i = 0; i < chunks.length; i++) {
-    lastMsg = await tgApi<TelegramMessage>(botToken, "sendMessage", {
+    const payload: Record<string, unknown> = {
       chat_id: chatId,
       text: chunks[i],
       parse_mode: "Markdown",
       reply_to_message_id: i === 0 ? replyToMessageId : undefined,
       disable_web_page_preview: true,
-    }).catch(async () => {
+    };
+
+    if (replyMarkup && i === 0) {
+      payload.reply_markup = replyMarkup;
+    }
+
+    lastMsg = await tgApi<TelegramMessage>(botToken, "sendMessage", payload).catch(async () => {
       // Fallback: send without Markdown if parsing fails
-      return tgApi<TelegramMessage>(botToken, "sendMessage", {
+      const fallbackPayload: Record<string, unknown> = {
         chat_id: chatId,
         text: chunks[i],
         reply_to_message_id: i === 0 ? replyToMessageId : undefined,
         disable_web_page_preview: true,
-      });
+      };
+      if (replyMarkup && i === 0) {
+        fallbackPayload.reply_markup = replyMarkup;
+      }
+      return tgApi<TelegramMessage>(botToken, "sendMessage", fallbackPayload);
     });
   }
 
   return lastMsg!;
+}
+
+export async function answerCallbackQuery(
+  botToken: string,
+  callbackQueryId: string,
+  text?: string
+): Promise<void> {
+  await tgApi(botToken, "answerCallbackQuery", {
+    callback_query_id: callbackQueryId,
+    text,
+    show_alert: false,
+  });
 }
 
 /**

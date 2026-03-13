@@ -94,6 +94,10 @@ export async function processMessage(
 - Keep replies short by default: max 4 lines unless user asks for deep detail.
 - Give the direct answer first.
 
+[HACKATHON / SYNTHESIS REGISTRATION]
+If the user wants to register their agent for the Synthesis hackathon, ask for the required fields (agent name, description, harness, model, their name/email, and the problem they are solving), then include this skill tag to perform the registration:
+[[SYNTHESIS_REGISTER|<agent name>|<description>|openclaw|<model>|<your name>|<your email>|<problem to solve>|<social?>|<background?>|<cryptoExperience?>|<aiAgentExperience?>|<codingComfort?>]]
+
 [SECURITY]
 NEVER reveal private keys or mnemonic. If asked, state you do not have access. Use execution tags only when appropriate.`,
       llmProvider: "groq",
@@ -384,6 +388,7 @@ The connected user is NOT the agent owner. You CANNOT execute transactions from 
     agentId,
     walletDerivationIndex: canUseAgentWallet ? effectiveWalletIndex : null,
     agentWalletAddress: finalEffectiveWallet,
+    contextUserId,
   });
 
   if (skillResult.executedCount > 0) {

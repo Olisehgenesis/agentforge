@@ -1652,6 +1652,207 @@ export async function executeCheckPrice(
   }
 }
 
+export async function executeSynthesisRegister(
+  params: string[],
+  ctx: SkillContext
+): Promise<SkillResult> {
+  // Required registration fields
+  const requiredFields = [
+    "name",
+    "description",
+    "agentHarness",
+    "model",
+    "humanName",
+    "humanEmail",
+    "problemToSolve",
+  ];
+
+  const optionalFields = [
+    "social",
+    "background",
+    "cryptoExperience",
+    "aiAgentExperience",
+    "codingComfort",
+  ];
+
+  // Parse params into a key/value map.
+  // Supports both positional (legacy) and key=value (interactive) formats.
+  const paramMap: Record<string, string> = {};
+
+  if (params.length === 1 && params[0]?.includes("=")) {
+    // single string like "name=...|description=..."
+    params[0]
+      .split("|")
+      .map((p) => p.trim())
+      .filter(Boolean)
+      .forEach((p) => {
+        const [k, ...rest] = p.split("=");
+        const v = rest.join("=").trim();
+        if (k && v) paramMap[k.trim()] = v;
+      });
+  } else {
+    // positional mapping
+    const positions = [
+      "name",
+      "description",
+      "agentHarness",
+      "model",
+      "humanName",
+      "humanEmail",
+      "problemToSolve",
+      "social",
+      "background",
+      "cryptoExperience",
+      "aiAgentExperience",
+      "codingComfort",
+    ];
+    params.forEach((p, idx) => {
+      const key = positions[idx];
+      if (key && p) paramMap[key] = p.trim();
+    });
+  }
+
+  // Determine which agent record to update.
+  let targetAgentId = ctx.agentId;
+  if (targetAgentId === "system" && ctx.contextUserId) {
+    const userAgents = await prisma.agent.findMany({
+      where: { ownerId: ctx.contextUserId },
+      orderBy: { createdAt: "desc" },
+      take: 1,
+      select: { id: true, imageUrl: true, configuration: true },
+    });
+    if (userAgents.length === 0) {
+      return {
+        success: false,
+        error: "No agent found",
+        display:
+          "❌ I couldn't find any agents for your account. Create an agent first (e.g. /deploy) and then try registering it with Synthesis.",
+      };
+    }
+    targetAgentId = userAgents[0].id;
+  }
+
+  // Load existing draft (if any) so we can keep progress across messages
+  const agent = await prisma.agent.findUnique({
+    where: { id: targetAgentId },
+    select: { imageUrl: true, configuration: true },
+  });
+
+  const existingConfig = agent?.configuration ? JSON.parse(agent.configuration) : {};
+  const draft = (existingConfig.synthesisRegistrationDraft as Record<string, string> | undefined) || {};
+
+  // Merge incoming params into draft (overwrite existing values)
+  Object.assign(draft, paramMap);
+
+  // Determine required fields that are still missing
+  const missing = requiredFields.filter((f) => !draft[f]);
+  if (missing.length > 0) {
+    // Store draft back to DB so we keep progress
+    existingConfig.synthesisRegistrationDraft = draft;
+    await prisma.agent.update({
+      where: { id: targetAgentId },
+      data: { configuration: JSON.stringify(existingConfig) },
+    });
+
+    const lines = [
+      fmtHeader("Synthesis Registration — Missing Info", "🧩"),
+      "",
+      `I need a few more details before I can register your agent on the Synthesis hackathon platform.`,
+      "",
+      fmtBullet(`Missing fields: **${missing.join(", ")}**`),
+      "",
+      fmtMeta(
+        `Reply using the command tag with key=value pairs, e.g. [[SYNTHESIS_REGISTER|humanEmail=you@example.com]].`
+      ),
+      "",
+      fmtMeta(
+        "When everything is provided, I will submit the registration and save the API key securely."
+      ),
+    ];
+
+    return {
+      success: false,
+      error: "Missing required fields",
+      display: lines.join("\n"),
+    };
+  }
+
+  // All required info is present — submit to Synthesis.
+  const payload: Record<string, unknown> = {
+    name: draft.name,
+    description: draft.description,
+    agentHarness: draft.agentHarness,
+    model: draft.model,
+    humanInfo: {
+      name: draft.humanName,
+      email: draft.humanEmail,
+      socialMediaHandle: draft.social || undefined,
+      background: draft.background || undefined,
+      cryptoExperience: draft.cryptoExperience || undefined,
+      aiAgentExperience: draft.aiAgentExperience || undefined,
+      codingComfort: draft.codingComfort || undefined,
+      problemToSolve: draft.problemToSolve,
+    },
+  };
+
+  if (agent?.imageUrl) {
+    payload.image = agent.imageUrl;
+  }
+
+  try {
+    const response = await fetch("https://synthesis.devfolio.co/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    const result = await response.json();
+    if (!response.ok) {
+      const errMsg = result?.error || result?.message || response.statusText;
+      return {
+        success: false,
+        error: String(errMsg),
+        display: `❌ Synthesis registration failed: ${errMsg}`,
+      };
+    }
+
+    // Persist registration data and clear draft
+    existingConfig.synthesisRegistration = {
+      apiKey: result.apiKey,
+      participantId: result.participantId,
+      teamId: result.teamId,
+      registrationTxn: result.registrationTxn,
+      registeredAt: new Date().toISOString(),
+      payload,
+    };
+    delete existingConfig.synthesisRegistrationDraft;
+
+    await prisma.agent.update({
+      where: { id: targetAgentId },
+      data: { configuration: JSON.stringify(existingConfig) },
+    });
+
+    const display = [
+      fmtHeader("Synthesis Registration Complete", "✅"),
+      "",
+      fmtBullet(`API key (save this now): \`${result.apiKey}\``),
+      fmtBullet(`Participant ID: **${result.participantId}**`),
+      fmtBullet(`Team ID: **${result.teamId}**`),
+      fmtBullet(`Registration TX: ${result.registrationTxn}`),
+      "",
+      fmtMeta("The API key is stored in the agent configuration under synthesisRegistration."),
+    ].join("\n");
+
+    return { success: true, data: result as unknown as Record<string, unknown>, display };
+  } catch (error) {
+    return {
+      success: false,
+      error: String(error),
+      display: `❌ Synthesis registration failed: ${error}`,
+    };
+  }
+}
+
 export function formatPeriodLabel(minutes: number): string {
   if (minutes < 60) return `${minutes} minutes`;
   if (minutes < 1440) return `${Math.round(minutes / 60)} hour(s)`;
