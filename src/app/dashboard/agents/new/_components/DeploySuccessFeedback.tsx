@@ -64,21 +64,6 @@ export function DeploySuccessFeedback({
     }
   };
 
-  if (!agentHausId) {
-    return (
-      <div className="border-4 border-forest bg-white p-6 shadow-hard space-y-4">
-        <p className="text-xs font-black uppercase tracking-tight text-forest/60">
-          Agent Haus Registry Status: <span className="text-red-500">OFFLINE</span>
-        </p>
-        <button
-          onClick={onDone}
-          className="h-12 px-6 border-2 border-forest bg-white font-black uppercase text-xs tracking-widest shadow-hard active:translate-y-px flex items-center gap-2"
-        >
-          CONTINUE TO DASHBOARD <ArrowRight className="w-4 h-4 stroke-[3px]" />
-        </button>
-      </div>
-    );
-  }
 
   const providerInfo = LLM_PROVIDER_INFO[llmProvider];
 
@@ -133,77 +118,91 @@ export function DeploySuccessFeedback({
         </div>
       )}
 
-      <div className="border-4 border-forest bg-celo p-8 shadow-hard space-y-6">
-        <div className="space-y-2">
-          <h4 className="text-2xl font-black uppercase tracking-tighter">
-            PROTOCOL RATING
-          </h4>
-          <p className="text-xs font-bold uppercase tracking-tight text-forest/60 max-w-md">
-            Help Agent Haus optimize the registry. Your feedback is hashed and
-            persisted on-chain.
-          </p>
-        </div>
+      {agentHausId ? (
+        <div className="border-4 border-forest bg-celo p-8 shadow-hard space-y-6">
+          <div className="space-y-2">
+            <h4 className="text-2xl font-black uppercase tracking-tighter">
+              PROTOCOL RATING
+            </h4>
+            <p className="text-xs font-bold uppercase tracking-tight text-forest/60 max-w-md">
+              Help Agent Haus optimize the registry. Your feedback is hashed and
+              persisted on-chain.
+            </p>
+          </div>
 
-        {!submitted ? (
-          <div className="space-y-6">
-            <div className="flex gap-3">
-              {[1, 2, 3, 4, 5].map((s) => (
+          {!submitted ? (
+            <div className="space-y-6">
+              <div className="flex gap-3">
+                {[1, 2, 3, 4, 5].map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => setRating(s)}
+                    className={`w-14 h-14 border-2 border-forest flex items-center justify-center transition-all ${rating >= s
+                      ? "bg-forest text-white shadow-hard-active translate-y-0.5"
+                      : "bg-white hover:bg-gypsum"
+                      }`}
+                  >
+                    <Star
+                      className={`w-7 h-7 stroke-[2.5px] ${rating >= s ? "fill-white" : ""}`}
+                    />
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex gap-4">
                 <button
-                  key={s}
-                  type="button"
-                  onClick={() => setRating(s)}
-                  className={`w-14 h-14 border-2 border-forest flex items-center justify-center transition-all ${rating >= s
-                    ? "bg-forest text-white shadow-hard-active translate-y-0.5"
-                    : "bg-white hover:bg-gypsum"
-                    }`}
+                  onClick={handleSubmit}
+                  disabled={rating === 0 || submitting}
+                  className="h-14 px-8 border-4 border-forest bg-white font-black uppercase text-sm tracking-widest shadow-hard active:translate-y-1 active:shadow-hard-active disabled:opacity-40 flex items-center gap-3"
                 >
-                  <Star
-                    className={`w-7 h-7 stroke-[2.5px] ${rating >= s ? "fill-white" : ""}`}
-                  />
+                  {submitting ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <>
+                      RECORD FEEDBACK
+                      <ArrowRight className="w-5 h-5 stroke-[3px]" />
+                    </>
+                  )}
                 </button>
-              ))}
+                <button
+                  onClick={onDone}
+                  className="px-6 font-black uppercase text-xs tracking-widest text-forest/40 hover:text-forest transition-colors"
+                >
+                  SKIP_LOGS
+                </button>
+              </div>
             </div>
-
-            <div className="flex gap-4">
-              <button
-                onClick={handleSubmit}
-                disabled={rating === 0 || submitting}
-                className="h-14 px-8 border-4 border-forest bg-white font-black uppercase text-sm tracking-widest shadow-hard active:translate-y-1 active:shadow-hard-active disabled:opacity-40 flex items-center gap-3"
-              >
-                {submitting ? (
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                ) : (
-                  <>
-                    RECORD FEEDBACK
-                    <ArrowRight className="w-5 h-5 stroke-[3px]" />
-                  </>
-                )}
-              </button>
+          ) : (
+            <div className="flex flex-col items-start gap-6">
+              <div className="p-4 border-2 border-forest bg-white shadow-hard flex items-center gap-3">
+                <div className="w-8 h-8 bg-forest text-white flex items-center justify-center">
+                  <Check className="w-5 h-5 stroke-[4px]" />
+                </div>
+                <span className="text-sm font-black uppercase tracking-tight">TRANSMISSION_COMPLETE</span>
+              </div>
               <button
                 onClick={onDone}
-                className="px-6 font-black uppercase text-xs tracking-widest text-forest/40 hover:text-forest transition-colors"
+                className="h-14 px-8 border-4 border-forest bg-white font-black uppercase text-sm tracking-widest shadow-hard active:translate-y-1 active:shadow-hard-active flex items-center gap-3"
               >
-                SKIP_LOGS
+                CONTINUE TO DASHBOARD <ArrowRight className="w-5 h-5 stroke-[3px]" />
               </button>
             </div>
-          </div>
-        ) : (
-          <div className="flex flex-col items-start gap-6">
-            <div className="p-4 border-2 border-forest bg-white shadow-hard flex items-center gap-3">
-              <div className="w-8 h-8 bg-forest text-white flex items-center justify-center">
-                <Check className="w-5 h-5 stroke-[4px]" />
-              </div>
-              <span className="text-sm font-black uppercase tracking-tight">TRANSMISSION_COMPLETE</span>
-            </div>
-            <button
-              onClick={onDone}
-              className="h-14 px-8 border-4 border-forest bg-white font-black uppercase text-sm tracking-widest shadow-hard active:translate-y-1 active:shadow-hard-active flex items-center gap-3"
-            >
-              CONTINUE TO DASHBOARD <ArrowRight className="w-5 h-5 stroke-[3px]" />
-            </button>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      ) : (
+        <div className="border-4 border-forest bg-white p-6 shadow-hard space-y-4">
+          <p className="text-xs font-black uppercase tracking-tight text-forest/60">
+            Rating is unavailable right now.
+          </p>
+          <button
+            onClick={onDone}
+            className="h-12 px-6 border-2 border-forest bg-white font-black uppercase text-xs tracking-widest shadow-hard active:translate-y-px flex items-center gap-2"
+          >
+            CONTINUE TO DASHBOARD <ArrowRight className="w-4 h-4 stroke-[3px]" />
+          </button>
+        </div>
+      )}
     </div>
   );
 }

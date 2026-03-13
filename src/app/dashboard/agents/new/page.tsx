@@ -16,10 +16,6 @@ import type { AgentTemplate, LLMProvider, AgentConfig } from "@/lib/types";
 import { useERC8004 } from "@/hooks/useERC8004";
 import { DeploySuccessFeedback } from "./_components";
 
-// image generator imports
-import {
-  generateNFTSVG,
-} from "@/lib/svg-generator";
 
 
 export default function NewAgentPage() {
@@ -65,27 +61,7 @@ export default function NewAgentPage() {
     custom: "Custom agents start blank; AI capabilities depend on your system prompt and configuration.",
   };
 
-  // choose a random image by generating an SVG via generateNFTSVG and rasterizing it
-  async function chooseRandomSVG() {
-    const { svg } = generateNFTSVG();
-    const dataUrl = 'data:image/svg+xml;base64,' + btoa(svg);
-    const res = await fetch(dataUrl);
-    const blob = await res.blob();
-    setImageFile(new File([blob], "image.png", { type: "image/png" }));
-  }
 
-  // alias for UI
-  const chooseRandomImage = chooseRandomSVG;
-
-  // pick one on mount
-  React.useEffect(() => {
-    chooseRandomImage();
-  }, []);
-
-  // pick one on mount
-  React.useEffect(() => {
-    chooseRandomImage();
-  }, []);
 
   // legacy/hidden state kept to satisfy API, but never shown
   const [description, setDescription] = React.useState("");
@@ -214,7 +190,7 @@ export default function NewAgentPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: agentName,
-          description: subtype || description,
+          description: subtype || TYPE_INFO[agentType as string] || description,
           templateType: (agentType as AgentTemplate) || selectedTemplate,
           systemPrompt,
           llmProvider,
@@ -343,28 +319,19 @@ export default function NewAgentPage() {
             </div>
 
             <div className="space-y-4">
-              <h2 className="text-2xl font-semibold">Type &amp; subtype</h2>
+              <h2 className="text-2xl font-semibold">Type</h2>
               <Select
                 label="Type"
                 value={agentType}
                 onChange={(e) => setAgentType(e.target.value as AgentTemplate)}
                 options={[{ value: "", label: "Select type" },
-                  ...AGENT_TEMPLATES.map((t) => ({ value: t.id, label: t.name }))]}
+                ...AGENT_TEMPLATES.map((t) => ({ value: t.id, label: t.name }))]}
                 className="text-sm"
               />
               {agentType && (
                 <p className="text-xs text-forest/60 mt-1">
                   {TYPE_INFO[agentType] || ""}
                 </p>
-              )}
-              {agentType && (
-                <Input
-                  label="Subtype / description"
-                  placeholder="e.g. customer service bot"
-                  value={subtype}
-                  onChange={(e) => setSubtype(e.target.value)}
-                  className="text-sm"
-                />
               )}
             </div>
 

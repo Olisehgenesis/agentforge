@@ -22,6 +22,8 @@ export interface AgentData {
   erc8004TxHash: string | null;
   erc8004ChainId: number | null;
   reputationScore: number;
+  exported: boolean;
+  exportedAt: string | null;
   createdAt: string;
   deployedAt: string | null;
   transactions: TransactionData[];
@@ -78,7 +80,7 @@ export interface VerificationStatus {
   hasSession?: boolean;
   message?: string;
   sessionId?: string;
-  challengeExpiresAt?: number; // unix ms — when the SelfClaw session expires
+  challengeExpiresAt?: number; // unix ms — when the Self verification session expires
 }
 
 export interface ChannelData {

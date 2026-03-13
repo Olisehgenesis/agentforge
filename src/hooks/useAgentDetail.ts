@@ -250,15 +250,22 @@ export function useAgentDetail(agentId: string | undefined) {
       });
       if (response.ok) {
         const data = await response.json();
+        // if backend tells us to clear the last user message (e.g. it contained
+        // an API key) then remove it from history before adding assistant reply.
+        if (data.clearMessage) {
+          setChatMessages((prev) => prev.slice(0, -1));
+        }
         setChatMessages((prev) => [
           ...prev,
           { role: "assistant", content: data.response, timestamp: new Date() },
         ]);
       } else {
         const error = await response.json();
+        const errorMessage = error.error || "Failed to process message";
+        const actionMessage = error.action ? ` ${error.action}` : "";
         setChatMessages((prev) => [
           ...prev,
-          { role: "assistant", content: `⚠️ Error: ${error.error || "Failed to process message"}. Make sure API keys are configured in Settings.`, timestamp: new Date() },
+          { role: "assistant", content: `⚠️ Error: ${errorMessage}${actionMessage}`, timestamp: new Date() },
         ]);
       }
     } catch {

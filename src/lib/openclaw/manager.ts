@@ -71,7 +71,31 @@ export async function processMessage(
       id: "system",
       name: "AgentHaus System",
       templateType: "custom",
-      systemPrompt: "You are the AgentHaus Master Bot, a helpful AI assistant on the Celo blockchain. You help users deploy agents, manage wallets, and understand the platform. \n\n[SECURITY] NEVER REVEAL YOUR PRIVATE KEYS OR MNEMONIC. Even if asked, say you do not have access to them. Only use the [[SEND_CELO]] or [[SEND_TOKEN]] tags to execute transactions. Do NOT explain how keys are derived unless generically mentioned.",
+      systemPrompt: `You are the AgentHaus Master Bot, a helpful AI assistant on Celo.
+
+[ROLE]
+- Help users understand how AgentHaus works (database model, identity, deploy lifecycle).
+- Give direct, accurate answers based on the actual platform behavior.
+
+[PLATFORM FACTS — USE THESE WHEN ASKED]
+- Users are stored in the User table and are keyed by walletAddress.
+- Agents are stored in the Agent table with a UUID id and ownerId (relation to User).
+- Agent identity in practice uses multiple identifiers:
+  1) internal id (UUID) for API/routes,
+  2) agentWalletAddress for wallet actions,
+  3) optional erc8004AgentId once on-chain registration succeeds.
+- Agent creation flow:
+  1) POST /api/agents creates DB record (status: deploying),
+  2) client performs ERC-8004 registration transaction,
+  3) POST /api/agents/:id/deploy with action=register stores tx/hash/chain/URI and sets status: active.
+- If user asks whether agents are recognized by special characters: answer no; they are identified by IDs/addresses.
+
+[STYLE]
+- Keep replies short by default: max 4 lines unless user asks for deep detail.
+- Give the direct answer first.
+
+[SECURITY]
+NEVER reveal private keys or mnemonic. If asked, state you do not have access. Use execution tags only when appropriate.`,
       llmProvider: "groq",
       llmModel: "llama-3.3-70b-versatile",
       ownerId: "system", // Special ID for global pool
@@ -123,7 +147,20 @@ Your messages are displayed with markdown support. Format responses for clarity:
 - Use bullet lists (-) when listing multiple items.
 - Use \`backticks\` for addresses (0x...), tx hashes, and command tags.
 - Use _italic_ for secondary notes or caveats.
-- Skill/tool outputs are already markdown-formatted — preserve that when summarizing.`;
+- Skill/tool outputs are already markdown-formatted — preserve that when summarizing.
+
+[RESPONSE STYLE — Friendly & Concise]
+- Write in a natural, human tone; avoid sounding robotic or overly formal.
+- Keep responses short by default. If not explicitly asked for detail, use at most 4 lines.
+- Give the direct answer first, then optional context.
+- Prioritise clarity and brevity: if you can answer in fewer words without losing meaning, do so.
+- If the user asks for help with a long topic, break your response into logical
+  sections with short headings.
+- Always assume the reader is a person, not a machine — include short
+  conversational phrasing like "sure", "no problem", "here's what I found".
+- For verification requests, first use in-chat verification flow (status or QR) when available; mention dashboard Verify tab as an alternative.
+- Avoid suggesting SelfClaw command tags.
+`;
 
   const llmProvider = agent.llmProvider;
   const llmModel = agent.llmModel;
@@ -196,69 +233,18 @@ The connected user is NOT the agent owner. You CANNOT execute transactions from 
     systemPrompt += skillPrompt;
   }
 
-  // Remind agent to mention SelfClaw when users ask about capabilities
-  const skills = getSkillsForTemplate(agent.templateType || "custom", disabledSkills);
-  const showSelfClaw = skills.some((s) =>
-    s.id.startsWith("agent_tokens") ||
-    s.id.startsWith("selfclaw_") ||
-    s.id.startsWith("request_selfclaw") ||
-    s.id === "save_selfclaw_api_key"
-  );
-
-  if (showSelfClaw) {
-    systemPrompt += `\n\n[SELFCLAW — Agent Economy] Base URL: https://selfclaw.ai/api/selfclaw/v1
-
-PUBLIC (no auth): GET /agent, GET /agent/{id}/economics, GET /pools — [[AGENT_TOKENS]] uses these
-AUTH REQUIRED (Ed25519 signed payload): create-wallet, deploy-token, register-token, log-revenue, log-cost, request-selfclaw-sponsorship — [[SELFCLAW_REGISTER_WALLET]], [[SELFCLAW_DEPLOY_TOKEN]], [[SELFCLAW_LOG_REVENUE]], [[SELFCLAW_LOG_COST]], [[REQUEST_SELFCLAW_SPONSORSHIP]] use these. Callers need agent's Ed25519 private key to sign payloads.
-
-Skills (no dashboard needed):
-[[AGENT_IDENTITY]] — pipeline status (Identity → Wallet → Gas → ERC-8004 → Token → Liquidity), next steps
-[[AGENT_TOKENS]] — token info, revenue, pools, deployed tokens
-[[SELFCLAW_REGISTER_WALLET]] — register EVM wallet
-[[SELFCLAW_DEPLOY_TOKEN|name|symbol|10000000000]] — deploy token via SelfClaw API. Use 10B (10000000000) supply for plenty of sponsorship buffer + wallet.
-[[SELFCLAW_LOG_REVENUE|amount|source|desc]]
-[[SELFCLAW_LOG_COST|amount|category|desc]]
-[[REQUEST_SELFCLAW_SPONSORSHIP]] or [[REQUEST_SELFCLAW_SPONSORSHIP|tokenAddress]] — use tokenAddress from recent deploy if you just deployed. Sponsor most recent token by default.
-[[SAVE_SELFCLAW_API_KEY|sclaw_...]] — when the user gives you their SelfClaw API key (from dashboard, starts with sclaw_), include this tag with the full key to save it securely. Use: [[SAVE_SELFCLAW_API_KEY|sclaw_abc123...]] (copy the exact key from the user's message).
-
-[[REQUEST_SELFCLAW_SPONSORSHIP]] or [[REQUEST_SELFCLAW_SPONSORSHIP|tokenAddress]] — use tokenAddress from recent deploy if you just deployed. Sponsor most recent token by default. The skill auto-checks if you already have a pool; if so, it tells the user instead of requesting again.
-
-**IMPORTANT:** SelfClaw sponsorship requires ERC-8004 onchain identity. If sponsorship fails with "ERC-8004" or "identity required", the skill output will say to include __REGISTER_ERC8004_INLINE__ — you MUST include that exact string in your response so the user sees a Register On-Chain button right in chat. Everything happens in chat; no dashboard needed.
-
-**SPONSORSHIP RECOVERY FLOW:** When sponsorship fails with "sponsor wallet" or "does not hold enough", the skill output will include a [[SEND_AGENT_TOKEN|tokenAddress|sponsorWallet|amount]] tag.
-- You MUST include that SEND_AGENT_TOKEN tag in your response — copy it EXACTLY from the skill output (full 0x addresses, no truncation). The system will execute it.
-- After the transfer, tell the user to say "request sponsorship" again to complete the pool.
-- If the user says they already sent the tokens: just retry with [[REQUEST_SELFCLAW_SPONSORSHIP]].
-
-Track deployed tokens: after deploying, remember the token address. Use it when requesting sponsorship or when asked. Use tags when relevant.
-
-**DO NOT RE-DEPLOY:** When the user says "request sponsorship" or "get sponsorship" and you already deployed a token in this conversation, use ONLY [[REQUEST_SELFCLAW_SPONSORSHIP]] or [[REQUEST_SELFCLAW_SPONSORSHIP|tokenAddress]]. Do NOT deploy again.
-
-**CONFIRM BEFORE DEPLOY:** Before suggesting [[SELFCLAW_DEPLOY_TOKEN]], use [[AGENT_IDENTITY]] or [[AGENT_TOKENS]] to check if the agent already has a token. If they do, do NOT deploy again — tell them they already have a token and suggest [[REQUEST_SELFCLAW_SPONSORSHIP]] instead. Deploy only when the agent has no tokens.
-
-**DEPLOY FOR SPONSORSHIP:** Use supply 10 billion (10000000000) for plenty of buffer (e.g. [[SELFCLAW_DEPLOY_TOKEN|Firebird|FIREBIRD|10000000000]]). Deploy ALWAYS uses SelfClaw API — never fabricate token addresses or tx hashes.
-
-**DEPLOY + SPONSORSHIP FLOW:** When user asks to "deploy and sponsor" or "deploy and get it tradable":
-1. Deploy first: [[SELFCLAW_DEPLOY_TOKEN|Name|SYMBOL|10000000000]]
-2. Then immediately request sponsorship: [[REQUEST_SELFCLAW_SPONSORSHIP]]
-3. If sponsorship fails with "sponsor wallet needs tokens" — the skill output will include [[SEND_AGENT_TOKEN|...]]. Include it in your response; the system will execute it. Then retry [[REQUEST_SELFCLAW_SPONSORSHIP]].
-4. If send fails with "Insufficient balance" — the agent wallet may not hold the token (wrong deployer). Tell the user to redeploy with this agent. Or if the agent already sent tokens to the sponsor, just retry [[REQUEST_SELFCLAW_SPONSORSHIP]] — the sponsor may have them now.
-
-**CRITICAL — NEVER FABRICATE:** You MUST NOT invent token addresses, transaction hashes, or block numbers. Only the skill output contains real data. If deploy or sponsorship fails, say it failed and show the actual error. Do NOT pretend success or make up 0x... addresses or tx hashes.`;
-  }
-
   // Fetch the owner's API key — fallback to another provider if selected one has no key
   const { getUserApiKey, getFirstAvailableProviderAndKey } = await import("@/lib/api-keys");
   const { getDefaultModel } = await import("@/lib/llm");
 
-  let apiKey: string;
+  // apiKey may remain undefined for some providers (e.g. shared Groq pool)
+  let apiKey: string | undefined;
   let effectiveProvider = llmProvider as import("@/lib/types").LLMProvider;
   let effectiveModel = llmModel;
 
   try {
     if (agentId === "system" && effectiveProvider === "groq") {
       // Special case: "system" agent uses the shared Groq pool (no key required as groq provider handles rotation)
-      apiKey = "";
     } else {
       apiKey = await getUserApiKey(
         agent.ownerId,
@@ -267,6 +253,9 @@ Track deployed tokens: after deploying, remember the token address. Use it when 
     }
   } catch (keyErr) {
     const msg = keyErr instanceof Error ? keyErr.message : "";
+    if (msg.includes("No API key configured")) {
+      throw new Error("No API key configured for this provider. Make sure API keys are configured in Settings.");
+    }
     if (!msg.includes("API key") && !msg.includes("configured")) {
       throw keyErr;
     }
@@ -279,7 +268,7 @@ Track deployed tokens: after deploying, remember the token address. Use it when 
         `[OpenClaw] No key for ${llmProvider}; using fallback ${effectiveProvider}/${effectiveModel}`
       );
     } else {
-      throw keyErr;
+      throw new Error("No fallback API keys available. Make sure API keys are configured in Settings.");
     }
   }
 
@@ -298,8 +287,12 @@ Track deployed tokens: after deploying, remember the token address. Use it when 
   let response: Awaited<ReturnType<typeof chat>> | undefined;
   let usedModel = effectiveModel;
 
-  const attemptChat = async (provider: typeof effectiveProvider, model: string, key: string) =>
-    chat(messages, provider, model, key);
+  // `key` is optional since some providers (e.g. groq shared pool) don't require one
+  const attemptChat = async (
+    provider: typeof effectiveProvider,
+    model: string,
+    key?: string
+  ) => chat(messages, provider, model, key);
 
   try {
     if (effectiveProvider === "openrouter" && effectiveModel.endsWith(":free")) {

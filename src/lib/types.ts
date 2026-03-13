@@ -71,6 +71,8 @@ export interface Agent {
   erc8004ChainId: number | null;
   reputationScore: number;
   configuration: string | null;
+  exported: boolean;
+  exportedAt: string | null;
   ownerId: string;
   createdAt: string;
   updatedAt: string;

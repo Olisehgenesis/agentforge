@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Bot, Loader2, ArrowLeft, Send, Info, Shield, Zap, Wallet, HandCoins, Coins, BadgeCheck, ShieldCheck, Trash2 } from "lucide-react";
 import { useAgentDetail } from "@/hooks/useAgentDetail";
-import { useVerification } from "@/hooks/useVerification";
 import { getTemplateIcon } from "@/lib/utils";
 import { ipfsToPublicGatewayUrl } from "@/lib/ipfs-url";
 import { VerifyModal } from "./_components/VerifyModal";
@@ -18,39 +17,256 @@ import { InlineRegisterWidget } from "./_components/InlineRegisterWidget";
 import { ChatMessageContent } from "@/components/chat/ChatMessageContent";
 import { FEEDBACK_INLINE_MARKER, REGISTER_ERC8004_INLINE_MARKER } from "@/lib/skills/feedback-marker";
 import type { ChatMessage } from "./_types";
+import type { VerificationStatus } from "./_types";
 
 export default function AgentDetailPage() {
   const router = useRouter();
   const params = useParams();
   const agentId = params.id as string | undefined;
   const ad = useAgentDetail(agentId);
-  const vf = useVerification(agentId);
 
   const [infoOpen, setInfoOpen] = React.useState(false);
   const [adminOpen, setAdminOpen] = React.useState(false);
-  const [syncingToSelfClaw, setSyncingToSelfClaw] = React.useState(false);
   const chatEndRef = useRef<HTMLDivElement | null>(null);
 
-  const handleSyncToSelfClaw = React.useCallback(async () => {
-    if (!agentId || !ad.userAddress) return;
-    setSyncingToSelfClaw(true);
+  const [verificationStatus, setVerificationStatus] = React.useState<VerificationStatus | null>(null);
+  const [verifyLoading, setVerifyLoading] = React.useState(false);
+  const [verifyPolling, setVerifyPolling] = React.useState(false);
+  const [verifyModalOpen, setVerifyModalOpen] = React.useState(false);
+  const [showVerifyDebug, setShowVerifyDebug] = React.useState(false);
+  const [qrSessionExpired, setQrSessionExpired] = React.useState(false);
+  const [proofError, setProofError] = React.useState<string | null>(null);
+
+  const isSessionActive = React.useMemo(() => {
+    if (!verificationStatus?.challengeExpiresAt) return false;
+    return Date.now() < verificationStatus.challengeExpiresAt;
+  }, [verificationStatus?.challengeExpiresAt]);
+
+  const isQrReady =
+    verificationStatus != null &&
+    !verificationStatus.verified &&
+    ["qr_ready", "challenge_signed", "pending"].includes(verificationStatus.status) &&
+    !!verificationStatus.selfAppConfig;
+
+  const fetchVerification = React.useCallback(async () => {
+    if (!agentId) return;
     try {
-      const res = await fetch(`/api/agents/${agentId}/selfclaw/sync-erc8004`, {
+      const res = await fetch(`/api/agents/${agentId}/verify`);
+      if (res.ok) {
+        const data = await res.json();
+        setVerificationStatus((prev) => {
+          if (prev?.selfAppConfig && prev?.sessionId && !data.verified) {
+            return { ...prev, status: data.status, verified: data.verified, humanId: data.humanId };
+          }
+          return data;
+        });
+      }
+    } catch {
+      // ignore
+    }
+  }, [agentId]);
+
+  React.useEffect(() => {
+    fetchVerification();
+  }, [fetchVerification]);
+
+  React.useEffect(() => {
+    if (!verifyPolling || !agentId) return;
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/agents/${agentId}/verify`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "check" }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.verified) {
+            setVerificationStatus((prev) => ({
+              ...prev,
+              ...data,
+              selfAppConfig: prev?.selfAppConfig || data.selfAppConfig,
+            }));
+            setVerifyPolling(false);
+          }
+        }
+      } catch {
+        // ignore
+      }
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [verifyPolling, agentId]);
+
+  const handleStartVerification = React.useCallback(async () => {
+    if (!agentId) return;
+    setVerifyLoading(true);
+    setQrSessionExpired(false);
+    setProofError(null);
+    try {
+      const startRes = await fetch(`/api/agents/${agentId}/verify`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ walletAddress: ad.userAddress }),
+        body: JSON.stringify({
+          action: "start",
+          agentWalletAddress: ad.agent?.agentWalletAddress || undefined,
+          connectedWalletAddress: ad.userAddress || undefined,
+        }),
+      });
+      const startData = await startRes.json();
+      if (!startRes.ok) throw new Error(startData.error);
+
+      const signRes = await fetch(`/api/agents/${agentId}/verify`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "sign" }),
+      });
+      const signData = await signRes.json();
+      if (!signRes.ok) throw new Error(signData.error);
+
+      setVerificationStatus({
+        ...startData,
+        ...signData,
+        selfAppConfig: signData.selfAppConfig || startData.selfAppConfig,
+        sessionId: signData.sessionId || startData.sessionId,
+        challengeExpiresAt: signData.challengeExpiresAt || startData.challengeExpiresAt,
+      });
+      setVerifyPolling(true);
+    } catch (err) {
+      setVerificationStatus({
+        status: "failed",
+        verified: false,
+        message: err instanceof Error ? err.message : "Verification failed",
+      });
+    } finally {
+      setVerifyLoading(false);
+    }
+  }, [agentId, ad.userAddress, ad.agent?.agentWalletAddress]);
+
+  const handleRestartVerification = React.useCallback(async () => {
+    if (!agentId) return;
+    setVerifyLoading(true);
+    setVerifyPolling(false);
+    setQrSessionExpired(false);
+    setProofError(null);
+    try {
+      const res = await fetch(`/api/agents/${agentId}/verify`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "restart",
+          agentWalletAddress: ad.agent?.agentWalletAddress || undefined,
+          connectedWalletAddress: ad.userAddress || undefined,
+        }),
       });
       const data = await res.json();
-      if (res.ok && data.success) {
-        setAdminOpen(false);
-      } else {
-        console.error("Sync failed:", data.error);
-        alert(data.error ?? "Sync failed");
-      }
+      if (!res.ok) throw new Error(data.error);
+
+      const signRes = await fetch(`/api/agents/${agentId}/verify`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "sign" }),
+      });
+      const signData = await signRes.json();
+
+      setVerificationStatus({
+        ...data,
+        ...signData,
+        selfAppConfig: signData.selfAppConfig || data.selfAppConfig,
+        sessionId: signData.sessionId || data.sessionId,
+        challengeExpiresAt: signData.challengeExpiresAt || data.challengeExpiresAt,
+      });
+      setVerifyPolling(true);
+    } catch (err) {
+      setVerificationStatus({
+        status: "failed",
+        verified: false,
+        message: err instanceof Error ? err.message : "Failed to restart verification. Check your network.",
+      });
     } finally {
-      setSyncingToSelfClaw(false);
+      setVerifyLoading(false);
     }
-  }, [agentId, ad.userAddress]);
+  }, [agentId, ad.userAddress, ad.agent?.agentWalletAddress]);
+
+  const handleQrSuccess = React.useCallback(async () => {
+    setVerificationStatus((prev) => (prev ? { ...prev, status: "verified", verified: true } : null));
+    setVerifyPolling(false);
+
+    const maxRetries = 12;
+    for (let i = 0; i < maxRetries; i++) {
+      await new Promise((r) => setTimeout(r, i < 3 ? 2000 : 5000));
+      try {
+        const res = await fetch(`/api/agents/${agentId}/verify`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "check" }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.verified) {
+            setVerificationStatus((prev) => ({
+              ...prev,
+              ...data,
+              selfAppConfig: prev?.selfAppConfig || data.selfAppConfig,
+            }));
+            return;
+          }
+        }
+      } catch {
+        // ignore
+      }
+    }
+  }, [agentId, ad.userAddress, ad.agent?.agentWalletAddress]);
+
+  const handleQrError = React.useCallback((err: unknown) => {
+    const errObj = err as Record<string, unknown> | null;
+    const status = errObj?.status as string | undefined;
+    const reason = errObj?.reason as string | undefined;
+    if (status === "proof_generation_failed") {
+      setProofError(
+        reason && reason !== "error"
+          ? `Proof generation failed: ${reason}`
+          : "Proof generation failed on your device. Please try again — hold your passport flat against your phone's NFC reader for 5+ seconds."
+      );
+      return;
+    }
+    setQrSessionExpired(true);
+    setVerifyPolling(false);
+  }, []);
+
+  const handleSyncVerification = React.useCallback(async () => {
+    if (!agentId) return;
+    try {
+      const res = await fetch(`/api/agents/${agentId}/verify`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "sync" }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.verified) {
+          setVerificationStatus((prev) => (prev ? { ...prev, ...data, verified: true } : data));
+        }
+        await fetchVerification();
+      }
+    } catch {
+      // ignore
+    }
+  }, [agentId, fetchVerification]);
+
+  const openVerifyModal = React.useCallback(() => {
+    setVerifyModalOpen(true);
+    if (isQrReady && isSessionActive) {
+      setVerifyPolling(true);
+      return;
+    }
+    const status = verificationStatus?.status;
+    if (!status || status === "not_started" || status === "failed") {
+      handleStartVerification();
+    } else {
+      handleRestartVerification();
+    }
+  }, [isQrReady, isSessionActive, verificationStatus?.status, handleStartVerification, handleRestartVerification]);
+
   const randomAvatarSeed = useMemo(() => Date.now() + Math.random(), []);
 
   useEffect(() => {
@@ -127,7 +343,7 @@ export default function AgentDetailPage() {
               <Badge variant={agent.status === "active" ? "default" : "warning"} className="text-[10px] h-5">
                 {agent.status}
               </Badge>
-              {vf.verificationStatus?.verified && (
+              {verificationStatus?.verified && (
                 <span
                   title="Verified and backed by human"
                   className="inline-flex items-center gap-1 rounded-full bg-forest-light/20 px-2 py-0.5 text-[10px] font-medium text-forest-light cursor-help"
@@ -169,7 +385,7 @@ export default function AgentDetailPage() {
                 </div>
                 <div className="flex items-center gap-2 mb-1">
                   <h3 className="text-forest font-medium">Chat with {agent.name}</h3>
-                  {vf.verificationStatus?.verified && (
+                  {verificationStatus?.verified && (
                     <span
                       title="Verified and backed by human"
                       className="inline-flex items-center gap-1 rounded-full bg-forest-light/20 px-2 py-0.5 text-xs font-medium text-forest-light cursor-help"
@@ -325,7 +541,7 @@ export default function AgentDetailPage() {
         open={infoOpen}
         onClose={() => setInfoOpen(false)}
         agent={agent}
-        verificationStatus={vf.verificationStatus}
+        verificationStatus={verificationStatus}
         channelData={ad.channelData}
       />
 
@@ -334,18 +550,16 @@ export default function AgentDetailPage() {
         open={adminOpen}
         onClose={() => setAdminOpen(false)}
         agent={agent}
-        verificationStatus={vf.verificationStatus}
+        verificationStatus={verificationStatus}
         channelData={ad.channelData}
         fetchChannels={ad.fetchChannels}
         onSocialsUpdated={ad.fetchChannels}
-        onOpenVerifyModal={() => { setAdminOpen(false); vf.openVerifyModal(); }}
+        onOpenVerifyModal={() => { setAdminOpen(false); openVerifyModal(); }}
         onRegisterOnChain={ad.handleRegisterOnChain}
         isRegistering={ad.isRegistering}
         erc8004Error={ad.erc8004Error}
         erc8004Deployed={ad.erc8004Deployed}
         hasUserAddress={!!ad.userAddress}
-        onSyncToSelfClaw={handleSyncToSelfClaw}
-        isSyncingToSelfClaw={syncingToSelfClaw}
         onUpdateMetadata={ad.handleUpdateMetadata}
         isUpdatingMetadata={ad.isUpdatingMetadata}
         updateMetadataError={ad.updateMetadataError}
@@ -354,26 +568,26 @@ export default function AgentDetailPage() {
 
       {/* ── Verify Modal ── */}
       <VerifyModal
-        open={vf.verifyModalOpen}
-        onClose={() => { vf.setVerifyModalOpen(false); vf.setVerifyPolling(false); }}
+        open={verifyModalOpen}
+        onClose={() => { setVerifyModalOpen(false); setVerifyPolling(false); }}
         agent={agent}
-        verificationStatus={vf.verificationStatus}
+        verificationStatus={verificationStatus}
         isConnected={ad.isConnected}
         isCeloMainnet={ad.isCeloMainnet}
         connectedChainId={ad.connectedChainId}
-        verifyLoading={vf.verifyLoading}
-        qrSessionExpired={vf.qrSessionExpired}
-        proofError={vf.proofError}
-        isSessionActive={vf.isSessionActive}
-        showVerifyDebug={vf.showVerifyDebug}
-        handleStartVerification={vf.handleStartVerification}
-        handleRestartVerification={vf.handleRestartVerification}
-        handleSyncVerification={vf.handleSyncVerification}
-        handleQrSuccess={vf.handleQrSuccess}
-        handleQrError={vf.handleQrError}
-        setQrSessionExpired={vf.setQrSessionExpired}
-        setProofError={vf.setProofError}
-        setShowVerifyDebug={vf.setShowVerifyDebug}
+        verifyLoading={verifyLoading}
+        qrSessionExpired={qrSessionExpired}
+        proofError={proofError}
+        isSessionActive={isSessionActive}
+        showVerifyDebug={showVerifyDebug}
+        handleStartVerification={handleStartVerification}
+        handleRestartVerification={handleRestartVerification}
+        handleSyncVerification={handleSyncVerification}
+        handleQrSuccess={handleQrSuccess}
+        handleQrError={handleQrError}
+        setQrSessionExpired={setQrSessionExpired}
+        setProofError={setProofError}
+        setShowVerifyDebug={setShowVerifyDebug}
         onSwitchToCelo={() => ad.switchChain({ chainId: ad.CELO_MAINNET_CHAIN_ID })}
         CELO_MAINNET_CHAIN_ID={ad.CELO_MAINNET_CHAIN_ID}
       />

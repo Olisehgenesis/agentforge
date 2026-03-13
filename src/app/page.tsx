@@ -119,6 +119,9 @@ export default function HomePage() {
         <Link href="/how-it-works" className="hover:text-forest transition-colors">
           How it works
         </Link>
+        <Link href="/why" className="hover:text-forest transition-colors">
+          Why
+        </Link>
         <Link href="/docs" className="hover:text-forest transition-colors">
           Docs
         </Link>

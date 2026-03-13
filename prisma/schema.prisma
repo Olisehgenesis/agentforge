@@ -76,7 +76,11 @@ model Agent {
   erc8004TxHash   String?  // Registration tx hash for verification
   erc8004ChainId  Int?     // Chain where agent is registered (42220 = Celo)
   reputationScore Float    @default(0.0)
-  
+
+  // export tracking (user-initiated JSON dump + wallet key)
+  exported        Boolean  @default(false)
+  exportedAt      DateTime?
+
   // Configuration (JSON stored as string)
   configuration   String?  // JSON string for template-specific config
   
@@ -136,8 +140,43 @@ model ChannelBinding {
   // Conversation session
   sessionMessages   SessionMessage[]
   
-  // Unique constraint: one active binding per sender per channel
-  @@unique([channelType, senderIdentifier, isActive])
+  // Unique constraint: only one *active* binding per sender per channel.
+  //
+  // The original schema enforced this with a composite unique index that
+  // included `isActive`. That caused errors whenever we deactivated a
+  // binding: updating `isActive` from `true`→`false` would conflict with any
+  // existing inactive row for the same sender since the pair
+  // (channelType,senderIdentifier,false) would already exist. The runtime
+  // error looked like `P2002 Unique constraint failed on the fields:
+  // ("channelType","senderIdentifier","isActive")` and occurred when
+  // pairing a second bot via Telegram or other channel.
+  //
+  // To fix this we remove `isActive` from the unique key and rely on
+  // application logic to maintain at most one active binding. The `updateMany`
+  // calls already deactivate any existing active records before creating a
+  // new one, so the invariant is preserved. If you need a database-level
+  // guarantee you can add a *partial* unique index manually with SQL:
+  //
+  //   CREATE UNIQUE INDEX "ChannelBinding_active_unique"
+  //   ON "ChannelBinding" ("channelType", "senderIdentifier")
+  //   WHERE "isActive" = TRUE;
+  //
+  // Prisma doesn't yet support partial indexes directly, so manual migration
+  // is required if you want that level of protection. For now we rely solely
+  // on application logic to ensure only one active binding per sender/channel.
+  // The `updateMany` calls deactivate any existing active binding before a new
+  // row is created, which preserves the invariant. This avoids both the
+  // P2002 error and any risk of data loss from a broad unique constraint.
+  //
+  // If you want to enforce it at the database level you can create a partial
+  // unique index manually:
+  //
+  //   CREATE UNIQUE INDEX "ChannelBinding_active_unique"
+  //   ON "ChannelBinding" ("channelType", "senderIdentifier")
+  //   WHERE "isActive" = TRUE;
+  //
+  // The following non-unique indexes remain for performance.
+
   @@index([agentId])
   @@index([userId])
   @@index([channelType, senderIdentifier])
@@ -197,7 +236,7 @@ model AgentVerification {
   
   // QR code / Self app configuration (JSON from SelfClaw)
   selfAppConfig       String?  // JSON: Self.xyz QR code config
-  
+
   // SelfClaw agent-api key (Bearer sclaw_...) — for feed, skills, services, briefing
   // User provides in chat; agent saves via [[SAVE_SELFCLAW_API_KEY|sclaw_...]]
   encryptedSelfclawApiKey String?  // AES-256-GCM encrypted
@@ -206,6 +245,15 @@ model AgentVerification {
   verifiedAt          DateTime?
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
+}
+
+// Persisted QR codes (for chat responses) so we can serve them via short URLs
+model QRCode {
+  id        String   @id @default(cuid())
+  agentId   String?  // optional link to agent
+  content   String   // original text/URL encoded
+  dataUrl   String   @db.Text // base64 PNG data
+  createdAt DateTime @default(now())
 }
 
 model Transaction {

@@ -8,7 +8,7 @@
  */
 
 import { prisma } from "@/lib/db";
-import { decrypt } from "@/lib/crypto";
+import { decrypt, encrypt } from "@/lib/crypto";
 import type { LLMProvider } from "@/lib/types";
 
 // Map provider → DB field name
@@ -175,4 +175,34 @@ export async function getUserKeyStatus(
     hasZaiKey: !!user?.zaiApiKey || !!process.env.ZAI_API_KEY,
     hasAnthropicKey: !!user?.anthropicApiKey || !!process.env.ANTHROPIC_API_KEY,
   };
+}
+
+/**
+ * Save or clear a per-user API key for a given provider.  The value is
+ * encrypted using the normal crypto helper so that it matches what
+ * the settings endpoint stores.
+ */
+export async function saveUserApiKey(
+  ownerId: string,
+  provider: LLMProvider,
+  key: string | null
+): Promise<void> {
+  const dbField = PROVIDER_DB_FIELD[provider];
+
+  // Find the user record; the owner should already exist when agents are created
+  const user = await prisma.user.findUnique({
+    where: { id: ownerId },
+    select: { id: true },
+  });
+  if (!user) {
+    throw new Error(`Cannot save API key: user ${ownerId} not found`);
+  }
+
+  const updateData: Record<string, string | null> = {};
+  updateData[dbField] = key ? encrypt(key) : null;
+
+  await prisma.user.update({
+    where: { id: user.id },
+    data: updateData,
+  });
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -24,8 +24,21 @@ import {
 } from "recharts";
 import { formatAddress } from "@/lib/utils";
 import type { AgentData } from "../_types";
-import type { EconomicsData, PoolData } from "@/hooks/useSelfClawEconomy";
-import { useSelfClawEconomy } from "@/hooks/useSelfClawEconomy";
+
+interface EconomicsData {
+  totalRevenue: string;
+  totalCosts: string;
+  profitLoss: string;
+  runway?: { months: number; status: string };
+}
+
+interface PoolData {
+  agentName?: string;
+  tokenAddress?: string;
+  price?: number;
+  volume24h?: number;
+  marketCap?: number;
+}
 
 interface TokenTradeTabProps {
   agent: AgentData;
@@ -42,21 +55,182 @@ export function TokenTradeTab({
   verified,
   onOpenVerifyModal,
 }: TokenTradeTabProps) {
-  const {
-    economics,
-    pools,
-    loading,
-    error,
-    walletRegistering,
-    tokenDeploying,
-    logSending,
-    sponsorRequesting,
-    registerWallet: onRegisterWallet,
-    deployToken: onDeployToken,
-    logRevenue: onLogRevenue,
-    logCost: onLogCost,
-    requestSponsorship: onRequestSponsorship,
-  } = useSelfClawEconomy(agentId, verified);
+  const [economics, setEconomics] = useState<EconomicsData | null>(null);
+  const [pools, setPools] = useState<PoolData[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [walletRegistering, setWalletRegistering] = useState(false);
+  const [tokenDeploying, setTokenDeploying] = useState(false);
+  const [logSending, setLogSending] = useState(false);
+  const [sponsorRequesting, setSponsorRequesting] = useState(false);
+
+  const normalizeEconomics = (raw: Record<string, unknown> | null): EconomicsData | null => {
+    if (!raw || typeof raw !== "object") return null;
+    const toStr = (v: unknown): string =>
+      typeof v === "string" ? v : typeof v === "number" ? String(v) : "0";
+    let runway: { months: number; status: string } | undefined;
+    if (raw.runway && typeof raw.runway === "object" && !Array.isArray(raw.runway)) {
+      const rw = raw.runway as Record<string, unknown>;
+      const months = typeof rw.months === "number" ? rw.months : 0;
+      const status = typeof rw.status === "string" ? rw.status : "";
+      runway = { months, status };
+    }
+    return {
+      totalRevenue: toStr(raw.totalRevenue ?? raw.totalRevenueUsd ?? 0),
+      totalCosts: toStr(raw.totalCosts ?? raw.totalCostUsd ?? 0),
+      profitLoss: toStr(raw.profitLoss ?? raw.netUsd ?? 0),
+      runway,
+    };
+  };
+
+  const fetchEconomics = useCallback(async () => {
+    if (!agentId || !verified) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/agents/${agentId}/selfclaw/economics`);
+      if (res.ok) {
+        const data = await res.json();
+        setEconomics(normalizeEconomics(data));
+      } else {
+        const err = await res.json();
+        setError(err.error || "Failed to fetch economics");
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Network error");
+    } finally {
+      setLoading(false);
+    }
+  }, [agentId, verified]);
+
+  const fetchPools = useCallback(async () => {
+    if (!agentId) return;
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/agents/${agentId}/selfclaw/pools`);
+      if (res.ok) {
+        const data = await res.json();
+        setPools(data.pools || []);
+      }
+    } catch {
+      // non-fatal
+    } finally {
+      setLoading(false);
+    }
+  }, [agentId]);
+
+  useEffect(() => {
+    if (verified) {
+      fetchEconomics();
+      fetchPools();
+    }
+  }, [verified, fetchEconomics, fetchPools]);
+
+  const onRegisterWallet = useCallback(async () => {
+    if (!agentId) return;
+    setWalletRegistering(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/agents/${agentId}/selfclaw/create-wallet`, { method: "POST" });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Failed to register wallet");
+      }
+      await fetchEconomics();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed");
+    } finally {
+      setWalletRegistering(false);
+    }
+  }, [agentId, fetchEconomics]);
+
+  const onDeployToken = useCallback(async (name: string, symbol: string, initialSupply: string) => {
+    if (!agentId) return;
+    setTokenDeploying(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/agents/${agentId}/selfclaw/deploy-token`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, symbol, initialSupply }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Failed to deploy token");
+      }
+      await fetchEconomics();
+      await fetchPools();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed");
+      throw e;
+    } finally {
+      setTokenDeploying(false);
+    }
+  }, [agentId, fetchEconomics, fetchPools]);
+
+  const onLogRevenue = useCallback(async (amount: string, source: string, currency?: string, description?: string) => {
+    if (!agentId) return;
+    setLogSending(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/agents/${agentId}/selfclaw/log-revenue`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount, currency: currency || "USD", source, description }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Failed to log revenue");
+      }
+      await fetchEconomics();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed");
+      throw e;
+    } finally {
+      setLogSending(false);
+    }
+  }, [agentId, fetchEconomics]);
+
+  const onLogCost = useCallback(async (amount: string, category: string, currency?: string, description?: string) => {
+    if (!agentId) return;
+    setLogSending(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/agents/${agentId}/selfclaw/log-cost`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount, currency: currency || "USD", category, description }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Failed to log cost");
+      }
+      await fetchEconomics();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed");
+      throw e;
+    } finally {
+      setLogSending(false);
+    }
+  }, [agentId, fetchEconomics]);
+
+  const onRequestSponsorship = useCallback(async () => {
+    if (!agentId) return;
+    setSponsorRequesting(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/agents/${agentId}/selfclaw/request-sponsorship`, { method: "POST" });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Failed to request sponsorship");
+      }
+      await fetchPools();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed");
+    } finally {
+      setSponsorRequesting(false);
+    }
+  }, [agentId, fetchPools]);
   const [deployName, setDeployName] = useState("");
   const [deploySymbol, setDeploySymbol] = useState("");
   const [deploySupply, setDeploySupply] = useState("10000000000");
@@ -124,7 +298,7 @@ export function TokenTradeTab({
           <Coins className="w-14 h-14 text-celo mx-auto mb-4" />
           <h3 className="text-lg font-medium text-forest mb-2">Agent Token & Trade</h3>
           <p className="text-sm text-forest-muted max-w-md mx-auto mb-4">
-            Deploy an ERC20 token for your agent, request SELFCLAW liquidity, and enable trading. Requires Self passport verification.
+            Deploy an ERC20 token for your agent, request liquidity sponsorship, and enable trading. Requires Self passport verification.
           </p>
           <Button variant="glow" onClick={onOpenVerifyModal} className="mt-2">
             <Shield className="w-4 h-4 mr-2" />
@@ -163,7 +337,7 @@ export function TokenTradeTab({
               onClick={onRegisterWallet}
               disabled={walletRegistering}
             >
-              {walletRegistering ? <Loader2 className="w-3 h-3 animate-spin" /> : "Register with SelfClaw"}
+              {walletRegistering ? <Loader2 className="w-3 h-3 animate-spin" /> : "Register wallet"}
             </Button>
           )}
         </div>
@@ -276,7 +450,7 @@ export function TokenTradeTab({
           disabled={sponsorRequesting}
         >
           {sponsorRequesting ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-          Request SELFCLAW Sponsorship
+          Request Liquidity Sponsorship
         </Button>
       </div>
 

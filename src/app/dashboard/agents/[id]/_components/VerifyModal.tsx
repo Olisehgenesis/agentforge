@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Modal } from "@/components/ui/modal";
@@ -80,13 +81,13 @@ export function VerifyModal({
             <ShieldCheck className="w-5 h-5 text-forest" />
           </div>
           <div className="flex-1">
-            <h3 className="text-forest font-semibold">SelfClaw Verification</h3>
+            <h3 className="text-forest font-semibold">Self Verification</h3>
             <p className="text-[10px] text-forest-muted/70">
               Powered by{" "}
-              <a href="https://selfclaw.ai" target="_blank" rel="noopener noreferrer" className="text-accent hover:text-accent-light">
-                selfclaw.ai
+              <a href="https://self-agent-id.vercel.app" target="_blank" rel="noopener noreferrer" className="text-accent hover:text-accent-light">
+                Self Agent ID
               </a>
-              {" "}× Self.xyz
+              {" "}on Celo via Self.xyz
             </p>
           </div>
           {verificationStatus?.verified ? (
@@ -155,7 +156,7 @@ export function VerifyModal({
           </div>
         )}
 
-        {/* ── Re-check from SelfClaw (for agents verified elsewhere) ── */}
+        {/* ── Re-check from Self (for agents verified elsewhere) ── */}
         {!verificationStatus?.verified && verificationStatus && isConnected && isCeloMainnet && handleSyncVerification && (
           <div className="pt-2 border-t border-forest/10">
             <button
@@ -164,7 +165,7 @@ export function VerifyModal({
               className="text-xs text-accent hover:text-accent-light flex items-center gap-1.5"
             >
               <RefreshCw className="w-3 h-3" />
-              Re-check from SelfClaw
+              Re-check from Self
             </button>
             <p className="text-[10px] text-forest-muted/70 mt-1">
               If you verified on another device, this will sync your status.
@@ -247,7 +248,7 @@ function NetworkCheckContent({ isConnected, connectedChainId, onSwitchToCelo }: 
         </div>
         <h4 className="text-forest font-semibold mb-1">Celo Mainnet Required</h4>
         <p className="text-xs text-forest-muted max-w-sm mx-auto mb-4">
-          SelfClaw verification requires <span className="text-amber-300 font-medium">Celo Mainnet</span> (Chain ID 42220).
+          Self verification requires <span className="text-amber-300 font-medium">Celo Mainnet</span> (Chain ID 42220).
           {!isConnected ? " Please connect your wallet first." : ` You're currently on chain ${connectedChainId}.`}
         </p>
         {!isConnected ? (
@@ -264,7 +265,7 @@ function NetworkCheckContent({ isConnected, connectedChainId, onSwitchToCelo }: 
         <div className="flex items-start gap-2">
           <Info className="w-3.5 h-3.5 text-amber-400 mt-0.5 flex-shrink-0" />
           <p className="text-[10px] text-forest-muted">
-            SelfClaw uses Self.xyz passport verification on <span className="text-amber-300 font-medium">Celo Mainnet</span> for ZK proof anchoring.
+            Self Agent ID uses Self.xyz passport verification on <span className="text-amber-300 font-medium">Celo Mainnet</span> for ZK proof anchoring.
           </p>
         </div>
       </div>
@@ -294,7 +295,7 @@ function NotStartedContent({ verifyLoading, handleStartVerification }: { verifyL
 
       <div className="grid grid-cols-3 gap-2">
         {[
-          { step: "1", title: "Register Keys", desc: "Ed25519 + SelfClaw" },
+          { step: "1", title: "Register Keys", desc: "Ed25519 + Self Agent ID" },
           { step: "2", title: "Sign Challenge", desc: "Prove key ownership" },
           { step: "3", title: "Scan QR", desc: "Passport ZK proof" },
         ].map((s) => (
@@ -342,6 +343,16 @@ function QrReadyContent({
   setProofError: (v: string | null) => void;
   setShowVerifyDebug: (v: boolean) => void;
 }) {
+  const rawCfg = verificationStatus.selfAppConfig as Record<string, unknown> | undefined;
+  const qrDataCfg =
+    rawCfg?.qrData && typeof rawCfg.qrData === "object"
+      ? (rawCfg.qrData as Record<string, unknown>)
+      : null;
+  const qrUrl = typeof rawCfg?.qrUrl === "string" ? rawCfg.qrUrl : null;
+  const deepLink = typeof rawCfg?.deepLink === "string" ? rawCfg.deepLink : null;
+  const selfAppForQr = (qrDataCfg || rawCfg) as unknown as SelfApp;
+  const canUseSdkQr = !!selfAppForQr && (qrDataCfg != null || !qrUrl);
+
   return (
     <div className="space-y-5">
       <div className="text-center">
@@ -352,13 +363,13 @@ function QrReadyContent({
       </div>
 
       {/* QR Code */}
-      {verificationStatus.selfAppConfig ? (
+      {canUseSdkQr ? (
         <div className="flex flex-col items-center gap-4">
           <div className="rounded-2xl overflow-hidden bg-white">
             <StableSelfQR
               key={verificationStatus.sessionId || "qr"}
               sessionId={verificationStatus.sessionId || "qr"}
-              selfApp={verificationStatus.selfAppConfig as unknown as SelfApp}
+              selfApp={selfAppForQr}
               onSuccess={handleQrSuccess}
               onError={handleQrError}
             />
@@ -386,6 +397,29 @@ function QrReadyContent({
               </div>
             );
           })()}
+        </div>
+      ) : qrUrl ? (
+        <div className="flex flex-col items-center gap-4">
+          <div className="rounded-2xl overflow-hidden bg-white p-2">
+            <Image
+              src={qrUrl}
+              alt="Self verification QR"
+              width={280}
+              height={280}
+              className="rounded-xl"
+              unoptimized
+            />
+          </div>
+          {deepLink && (
+            <a
+              href={deepLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-accent hover:text-accent-light"
+            >
+              Open Self app on mobile
+            </a>
+          )}
         </div>
       ) : (
         <div className="mx-auto w-fit">

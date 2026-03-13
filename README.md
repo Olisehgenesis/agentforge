@@ -49,6 +49,21 @@ Open [http://localhost:3005](http://localhost:3005). Connect a Celo wallet to cr
 
 ---
 
+## CLI registration support
+Agents and services can also be managed via the companion
+`self-agent` CLI (part of the `@selfxyz/agent-sdk` package). The CLI
+implements the same verification and registration protocols used by the
+web dashboard, and is useful for automation, scripting, or offline
+workflows. Key commands include `register init|open|wait|status|export`
+and their `deregister` counterparts; see the upstream CLI docs for a
+full specification.
+
+The chat interface and skills remain fully compatible with CLI flows.
+For example, after running the CLI to obtain a verification QR you can
+paste the URL into chat or ask the agent to `generate a QR code`.
+
+---
+
 ## Verifying Agents
 
 Two kinds of “verification”:
@@ -106,12 +121,51 @@ Copy `.env.example` to `.env` and set at least:
 |----------|---------|
 | `DATABASE_URL` | PostgreSQL (or SQLite) for Prisma |
 | `ENCRYPTION_SECRET` | AES-256-GCM for SelfClaw Ed25519 private keys (required in production) |
+
+## CLI Registration (self-agent)
+
+A companion CLI package (`@selfxyz/agent-sdk` / `self-agent-cli`) lets you perform the
+same agent onboarding and verification flows from your terminal. The CLI exposes a
+rich set of commands (`register init`, `open`, `wait`, `status`, `export`, plus
+`deregister` equivalents) covering all four registration modes (verified-wallet,
+agent-identity, wallet-free, smart-wallet) and is useful for automation or manual
+onboarding outside the web dashboard.
+
+To integrate the CLI with this codebase, simply install the SDK in your project and
+use the same session files and callback conventions described in the external docs.
+Chat and dashboard features call the same backend APIs, so users can move seamlessly
+between CLI and UI flows. When in doubt, ask the agent to `generate a QR code for
+verification` or use `[[SELFCLAW_REGISTER_WALLET]]` after updating via CLI.
+
+For full CLI reference see the package documentation (brief excerpt below):
+
+```bash
+npx @selfxyz/agent-sdk register init --mode agent-identity --human-address 0x... --network testnet --out .self/session.json
+npx @selfxyz/agent-sdk register open --session .self/session.json
+npx @selfxyz/agent-sdk register wait --session .self/session.json
+```
+
+(see docs/CLI_REGISTRATION.md or the upstream repository for complete details)
 | `NEXT_PUBLIC_CHAIN_ID` | Default `42220` (Celo Mainnet) |
 | `PINATA_JWT` | IPFS uploads for ERC-8004 registration JSON |
 | Cloudinary (or image upload) | Agent images for metadata/ERC-8004 |
 | `SELFCLAW_API_URL` | Optional; defaults to `https://selfclaw.ai/api/selfclaw/v1` |
 
 See `.env.example` for CELO RPC, Agent Haus agent IDs, and optional API keys.
+
+### Quickly configure API keys via chat
+If you start a conversation with an agent and no API key is set, the UI will return an error telling you to go to **Settings**.  To make things smoother you can now paste a provider name and key directly in chat:
+
+```
+openai key is sk-abc123...  
+// or: "groq api key: groq-xyz..."  
+// you can even specify a model e.g. "openai key sk‑... model:gpt-4o" 
+```
+
+The backend will detect the provider, save the encrypted key to your account, optionally update the agent's model, and return a confirmation response.  Your original message will be removed from the conversation history so the secret isn’t stored.
+
+This works for **OpenAI, OpenRouter, Groq, Grok, Gemini, DeepSeek, Z.AI, and Anthropic**. In development the server also falls back to keys in your environment variables.
+
 
 ---
 

@@ -1,33 +1,163 @@
-/**
- * Agent SelfClaw Verification API
- *
- * GET  /api/agents/[id]/verify  — Get current verification status
- * POST /api/agents/[id]/verify  — Start or advance verification flow
- *
- * Flow:
- *   POST { action: "start" }           → generates keys, calls SelfClaw, returns QR data
- *   POST { action: "sign" }            → signs challenge with agent key, submits to SelfClaw
- *   POST { action: "check" }           → polls SelfClaw for verification completion
- *   POST { action: "restart" }         → resets and restarts verification
- */
-
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import {
-  generateKeyPair,
-  signMessage,
-  encryptPrivateKey,
-  decryptPrivateKey,
-} from "@/lib/selfclaw/keys";
-import {
-  startVerification,
-  signChallenge,
-  checkAgentStatus,
-  createWallet as createWalletSelfClaw,
-  signAuthenticatedPayload,
-} from "@/lib/selfclaw/client";
+import { encryptPrivateKey } from "@/lib/selfclaw/keys";
 
-// ─── GET: Current verification status ────────────────────────────────────────
+const SELF_AGENT_API_BASE =
+  process.env.SELF_AGENT_API_BASE || "https://self-agent-id.vercel.app";
+const DEFAULT_NETWORK =
+  process.env.SELF_NETWORK === "testnet" ? "testnet" : "mainnet";
+const DEFAULT_MODE =
+  process.env.SELF_AGENT_MODE || "agent-identity";
+
+type SelfStartResponse = {
+  sessionId: string;
+  sessionToken?: string;
+  agentAddress?: string;
+  qrUrl?: string;
+  deepLink?: string;
+  privateKeyHex?: string;
+  expiresAt?: string;
+  qrData?: Record<string, unknown>;
+};
+
+type SelfStatusResponse = {
+  status: "pending" | "verified" | "expired";
+  stage?: "qr-ready" | "proof-received" | "pending" | "completed" | "failed";
+  agentId?: number;
+  error?: string;
+  message?: string;
+};
+
+function normalizeSelfStatus(raw: Record<string, unknown>): SelfStatusResponse {
+  const status = typeof raw.status === "string" ? raw.status : undefined;
+  const stage = typeof raw.stage === "string" ? raw.stage : undefined;
+  const agentId = typeof raw.agentId === "number" ? raw.agentId : undefined;
+
+  if (status === "verified") return { status: "verified", stage: "completed", agentId };
+  if (status === "expired") return { status: "expired", stage: "failed", agentId };
+  if (stage === "completed") return { status: "verified", stage, agentId };
+  if (stage === "failed") {
+    return {
+      status: "expired",
+      stage,
+      agentId,
+      error: typeof raw.error === "string" ? raw.error : undefined,
+      message: typeof raw.message === "string" ? raw.message : undefined,
+    };
+  }
+
+  return {
+    status: "pending",
+    stage: (stage as SelfStatusResponse["stage"]) || "pending",
+    agentId,
+  };
+}
+
+async function parseJson(res: Response, label: string): Promise<Record<string, unknown>> {
+  const text = await res.text();
+  try {
+    return text ? (JSON.parse(text) as Record<string, unknown>) : {};
+  } catch {
+    throw new Error(`${label} returned non-JSON response (status ${res.status})`);
+  }
+}
+
+async function startSelfRegistration(agentName: string, humanAddress?: string): Promise<SelfStartResponse> {
+  const payload: Record<string, unknown> = {
+    mode: DEFAULT_MODE,
+    network: DEFAULT_NETWORK,
+    disclosures: {
+      minimumAge: 18,
+      ofac: true,
+    },
+    agentName,
+  };
+  if (humanAddress) payload.humanAddress = humanAddress;
+
+  const res = await fetch(`${SELF_AGENT_API_BASE}/api/agent/register`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  const data = (await parseJson(res, "Self Agent ID register")) as Record<string, unknown> & {
+    error?: string;
+    message?: string;
+  };
+
+  if (!res.ok) {
+    throw new Error(data.error || data.message || `Self Agent ID register failed (${res.status})`);
+  }
+
+  const sessionToken =
+    typeof data.sessionToken === "string"
+      ? data.sessionToken.replace(/\s+/g, "")
+      : undefined;
+  const qrData =
+    data.qrData && typeof data.qrData === "object"
+      ? (data.qrData as Record<string, unknown>)
+      : undefined;
+  const sessionIdFromQr =
+    qrData && typeof qrData.sessionId === "string" ? qrData.sessionId : undefined;
+  const sessionId =
+    typeof data.sessionId === "string"
+      ? data.sessionId
+      : sessionIdFromQr;
+
+  if (!sessionId && !sessionToken) {
+    throw new Error("Self Agent ID register response is missing session identifiers");
+  }
+
+  return {
+    sessionId: sessionId || sessionToken!,
+    sessionToken,
+    agentAddress: typeof data.agentAddress === "string" ? data.agentAddress : undefined,
+    deepLink: typeof data.deepLink === "string" ? data.deepLink : undefined,
+    expiresAt: typeof data.expiresAt === "string" ? data.expiresAt : undefined,
+    qrData,
+    qrUrl: sessionToken
+      ? `${SELF_AGENT_API_BASE}/api/agent/register/qr?token=${encodeURIComponent(sessionToken)}`
+      : undefined,
+  };
+}
+
+async function checkSelfStatus(sessionTokenOrSessionId: string): Promise<SelfStatusResponse> {
+  const token = sessionTokenOrSessionId.replace(/\s+/g, "");
+
+  const primaryRes = await fetch(`${SELF_AGENT_API_BASE}/api/agent/register/status`, {
+    method: "GET",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const primaryRaw = (await parseJson(primaryRes, "Self Agent ID status")) as Record<string, unknown> & {
+    error?: string;
+    message?: string;
+  };
+  const primaryData = normalizeSelfStatus(primaryRaw);
+
+  if (primaryRes.ok) {
+    return primaryData;
+  }
+
+  const fallbackUrl = `${SELF_AGENT_API_BASE}/api/agent/register/status?token=${encodeURIComponent(token)}`;
+  const fallbackRes = await fetch(fallbackUrl, { method: "GET" });
+  const fallbackRaw = (await parseJson(fallbackRes, "Self Agent ID status")) as Record<string, unknown> & {
+    error?: string;
+    message?: string;
+  };
+  const fallbackData = normalizeSelfStatus(fallbackRaw);
+
+  if (!fallbackRes.ok) {
+    throw new Error(
+      fallbackData.error ||
+      fallbackData.message ||
+      (typeof primaryRaw.error === "string" ? primaryRaw.error : undefined) ||
+      (typeof primaryRaw.message === "string" ? primaryRaw.message : undefined) ||
+      `Self Agent ID status failed (${fallbackRes.status})`
+    );
+  }
+
+  return fallbackData;
+}
 
 export async function GET(
   _request: Request,
@@ -43,33 +173,31 @@ export async function GET(
         publicKey: true,
         humanId: true,
         agentKeyHash: true,
-        agentName: true,
         swarmUrl: true,
         selfxyzVerified: true,
-        selfxyzRegisteredAt: true,
-        selfAppConfig: true,
-        challenge: true,
         verifiedAt: true,
         createdAt: true,
         sessionId: true,
+        challenge: true,
+        selfAppConfig: true,
       },
     });
 
     if (!verification) {
-      return NextResponse.json({
-        status: "not_started",
-        verified: false,
-      });
+      return NextResponse.json({ status: "not_started", verified: false });
     }
 
-    // Extract challenge expiry if available
     let challengeExpiresAt: number | null = null;
-    if (verification.status !== "verified" && verification.challenge) {
+    if (verification.challenge) {
       try {
-        const parsed = JSON.parse(verification.challenge);
-        challengeExpiresAt = parsed.expiresAt || null;
+        const parsed = JSON.parse(verification.challenge) as { expiresAt?: string | number };
+        if (typeof parsed.expiresAt === "number") challengeExpiresAt = parsed.expiresAt;
+        if (typeof parsed.expiresAt === "string") {
+          const ms = Date.parse(parsed.expiresAt);
+          challengeExpiresAt = Number.isNaN(ms) ? null : ms;
+        }
       } catch {
-        // ignore
+        challengeExpiresAt = null;
       }
     }
 
@@ -98,8 +226,6 @@ export async function GET(
   }
 }
 
-// ─── POST: Advance verification flow ─────────────────────────────────────────
-
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -108,12 +234,24 @@ export async function POST(
 
   try {
     const body = await request.json();
-    const { action } = body;
+    const action = String(body?.action || "");
+    const connectedWalletAddress =
+      typeof body?.connectedWalletAddress === "string"
+        ? body.connectedWalletAddress.trim()
+        : undefined;
+    const agentWalletAddressFromClient =
+      typeof body?.agentWalletAddress === "string"
+        ? body.agentWalletAddress.trim()
+        : undefined;
 
-    // Verify agent exists
     const agent = await prisma.agent.findUnique({
       where: { id: agentId },
-      select: { id: true, name: true, ownerId: true },
+      select: {
+        id: true,
+        name: true,
+        agentWalletAddress: true,
+        owner: { select: { walletAddress: true } },
+      },
     });
 
     if (!agent) {
@@ -122,15 +260,15 @@ export async function POST(
 
     switch (action) {
       case "start":
-        return handleStart(agent);
+        return handleStart(agent, connectedWalletAddress, agentWalletAddressFromClient);
       case "sign":
-        return handleSign(agentId);
+        return handleSign(agent.id);
       case "check":
-        return handleCheck(agentId);
+        return handleCheck(agent.id);
       case "restart":
-        return handleRestart(agent);
+        return handleRestart(agent, connectedWalletAddress, agentWalletAddressFromClient);
       case "sync":
-        return handleSync(agentId);
+        return handleSync(agent.id);
       default:
         return NextResponse.json(
           { error: 'Invalid action. Use "start", "sign", "check", "restart", or "sync".' },
@@ -146,13 +284,17 @@ export async function POST(
   }
 }
 
-// ─── Action Handlers ─────────────────────────────────────────────────────────
-
-async function handleStart(agent: { id: string; name: string }) {
-  // Check for existing verification
-  const existing = await prisma.agentVerification.findUnique({
-    where: { agentId: agent.id },
-  });
+async function handleStart(
+  agent: {
+    id: string;
+    name: string;
+    agentWalletAddress: string | null;
+    owner: { walletAddress: string };
+  },
+  connectedWalletAddress?: string,
+  agentWalletAddressFromClient?: string
+) {
+  const existing = await prisma.agentVerification.findUnique({ where: { agentId: agent.id } });
 
   if (existing?.selfxyzVerified) {
     return NextResponse.json({
@@ -163,94 +305,81 @@ async function handleStart(agent: { id: string; name: string }) {
     });
   }
 
-  // Generate a new Ed25519 key pair
-  const { publicKey, privateKeyHex } = await generateKeyPair();
-  const encryptedKey = encryptPrivateKey(privateKeyHex);
-
-  // Call SelfClaw to start verification (retry with unique name if taken)
-  let selfClawResponse: Awaited<ReturnType<typeof startVerification>> | undefined;
-  let agentNameForSelfClaw = agent.name;
-  for (let attempt = 0; attempt < 2; attempt++) {
-    try {
-      selfClawResponse = await startVerification({
-        agentPublicKey: publicKey,
-        agentName: agentNameForSelfClaw,
-      });
-      break;
-    } catch (apiError) {
-      const msg = apiError instanceof Error ? apiError.message : "Unknown error";
-      if (attempt === 0 && msg.includes("Agent name already taken")) {
-        agentNameForSelfClaw = `${agent.name}-${agent.id.slice(0, 8)}`;
-        console.log("[SelfClaw] Name taken, retrying with:", agentNameForSelfClaw);
-        continue;
-      }
-      console.error("[SelfClaw] start-verification FAILED:", apiError);
-      return NextResponse.json(
-        { error: msg.startsWith("Request to SelfClaw") || msg.startsWith("Could not") || msg.startsWith("SelfClaw server") ? msg : `SelfClaw API error: ${msg}` },
-        { status: 502 }
-      );
-    }
-  }
-  if (!selfClawResponse) {
-    return NextResponse.json({ error: "Failed to start verification" }, { status: 500 });
-  }
-
-  // Parse challenge to extract expiry timestamp
-  let challengeExpiresAt: number | null = null;
   try {
-    const challengeObj = JSON.parse(selfClawResponse.challenge);
-    challengeExpiresAt = challengeObj.expiresAt || null;
-  } catch {
-    console.warn("[SelfClaw] Could not parse challenge JSON for expiry");
+    const isEvmAddress = (value?: string | null) => !!value && /^0x[a-fA-F0-9]{40}$/.test(value);
+    const humanAddress = isEvmAddress(agentWalletAddressFromClient)
+      ? agentWalletAddressFromClient
+      : isEvmAddress(agent.agentWalletAddress)
+        ? agent.agentWalletAddress!
+        : isEvmAddress(connectedWalletAddress)
+          ? connectedWalletAddress
+          : isEvmAddress(agent.owner.walletAddress)
+            ? agent.owner.walletAddress
+            : undefined;
+
+    const start = await startSelfRegistration(agent.name, humanAddress);
+    const expiresAtMs = start.expiresAt ? Date.parse(start.expiresAt) : null;
+
+    const selfAppConfig = {
+      provider: "self-agent-id",
+      qrUrl: start.qrUrl || null,
+      deepLink: start.deepLink || null,
+      qrData: start.qrData || null,
+      expiresAt: start.expiresAt || null,
+    };
+
+    await prisma.agentVerification.upsert({
+      where: { agentId: agent.id },
+      create: {
+        agentId: agent.id,
+        publicKey: start.agentAddress || `self-agent:${agent.id}`,
+        encryptedPrivateKey: encryptPrivateKey(start.privateKeyHex || "0x00"),
+        status: "pending",
+        sessionId: start.sessionId,
+        challenge: JSON.stringify({
+          expiresAt: start.expiresAt || null,
+          sessionToken: start.sessionToken || null,
+        }),
+        agentName: agent.name,
+        selfAppConfig: JSON.stringify(selfAppConfig),
+        selfxyzVerified: false,
+      },
+      update: {
+        publicKey: start.agentAddress || existing?.publicKey || `self-agent:${agent.id}`,
+        encryptedPrivateKey: start.privateKeyHex
+          ? encryptPrivateKey(start.privateKeyHex)
+          : existing?.encryptedPrivateKey || encryptPrivateKey("0x00"),
+        status: "pending",
+        sessionId: start.sessionId,
+        challenge: JSON.stringify({
+          expiresAt: start.expiresAt || null,
+          sessionToken: start.sessionToken || null,
+        }),
+        agentName: agent.name,
+        selfAppConfig: JSON.stringify(selfAppConfig),
+        selfxyzVerified: false,
+        humanId: null,
+        verifiedAt: null,
+      },
+    });
+
+    return NextResponse.json({
+      status: "pending",
+      verified: false,
+      sessionId: start.sessionId,
+      signatureRequired: false,
+      selfAppConfig,
+      challengeExpiresAt: expiresAtMs,
+      message: "Verification started. Next step: call with action 'sign'.",
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Failed to start verification";
+    return NextResponse.json({ error: message }, { status: 502 });
   }
-
-  // Upsert verification record
-  await prisma.agentVerification.upsert({
-    where: { agentId: agent.id },
-    create: {
-      agentId: agent.id,
-      publicKey,
-      encryptedPrivateKey: encryptedKey,
-      status: "pending",
-      sessionId: selfClawResponse.sessionId,
-      challenge: selfClawResponse.challenge,
-      agentKeyHash: selfClawResponse.agentKeyHash,
-      agentName: agent.name,
-      selfAppConfig: selfClawResponse.selfApp
-        ? JSON.stringify(selfClawResponse.selfApp)
-        : null,
-    },
-    update: {
-      publicKey,
-      encryptedPrivateKey: encryptedKey,
-      status: "pending",
-      sessionId: selfClawResponse.sessionId,
-      challenge: selfClawResponse.challenge,
-      agentKeyHash: selfClawResponse.agentKeyHash,
-      selfAppConfig: selfClawResponse.selfApp
-        ? JSON.stringify(selfClawResponse.selfApp)
-        : null,
-      selfxyzVerified: false,
-      humanId: null,
-      verifiedAt: null,
-    },
-  });
-
-  return NextResponse.json({
-    status: "pending",
-    sessionId: selfClawResponse.sessionId,
-    signatureRequired: selfClawResponse.signatureRequired,
-    selfAppConfig: selfClawResponse.selfApp || null,
-    publicKey,
-    challengeExpiresAt, // So the frontend can track session lifetime
-    message: "Verification started. Next step: call with action 'sign' to sign the challenge.",
-  });
 }
 
 async function handleSign(agentId: string) {
-  const verification = await prisma.agentVerification.findUnique({
-    where: { agentId },
-  });
+  const verification = await prisma.agentVerification.findUnique({ where: { agentId } });
 
   if (!verification) {
     return NextResponse.json(
@@ -260,105 +389,30 @@ async function handleSign(agentId: string) {
   }
 
   if (verification.selfxyzVerified) {
-    return NextResponse.json({
-      status: "already_verified",
-      verified: true,
-    });
+    return NextResponse.json({ status: "already_verified", verified: true });
   }
-
-  if (!verification.sessionId || !verification.challenge) {
-    return NextResponse.json(
-      { error: "No active session. Restart verification." },
-      { status: 400 }
-    );
-  }
-
-  // Check if challenge has expired (10 minute window)
-  let challengeExpiresAt: number | null = null;
-  try {
-    const challengeObj = JSON.parse(verification.challenge);
-    challengeExpiresAt = challengeObj.expiresAt || null;
-    if (challengeExpiresAt && Date.now() > challengeExpiresAt) {
-      console.warn("[SelfClaw] Challenge has expired — need to restart verification");
-      return NextResponse.json(
-        { error: "Challenge has expired. Please restart verification.", expired: true },
-        { status: 400 }
-      );
-    }
-  } catch {
-    // Continue — we'll let SelfClaw reject if expired
-  }
-
-  // Decrypt the private key and sign the EXACT challenge string from SelfClaw
-  let signature: string;
-  try {
-    const privateKeyHex = decryptPrivateKey(verification.encryptedPrivateKey);
-    console.log(
-      `[SelfClaw] Signing challenge (${verification.challenge.length} chars) for session ${verification.sessionId}`
-    );
-    signature = await signMessage(verification.challenge, privateKeyHex);
-  } catch (keyError) {
-    console.error("[SelfClaw] Key decryption/signing FAILED:", keyError);
-    return NextResponse.json(
-      { error: `Signing failed: ${keyError instanceof Error ? keyError.message : "Unknown error"}` },
-      { status: 500 }
-    );
-  }
-
-  // Submit to SelfClaw
-  let signResponse;
-  try {
-    signResponse = await signChallenge({
-      sessionId: verification.sessionId,
-      signature,
-    });
-    console.log("[SelfClaw] sign-challenge response:", JSON.stringify(signResponse, null, 2));
-  } catch (apiError) {
-    console.error("[SelfClaw] sign-challenge FAILED:", apiError);
-    return NextResponse.json(
-      { error: `SelfClaw sign error: ${apiError instanceof Error ? apiError.message : "Unknown error"}` },
-      { status: 502 }
-    );
-  }
-
-  // Update status — after signing, the QR code becomes available
-  const updatedSelfAppConfig = signResponse.selfApp
-    ? JSON.stringify(signResponse.selfApp)
-    : verification.selfAppConfig;
 
   await prisma.agentVerification.update({
     where: { agentId },
-    data: {
-      status: "qr_ready",
-      selfAppConfig: updatedSelfAppConfig,
-    },
+    data: { status: "qr_ready" },
   });
 
   return NextResponse.json({
     status: "qr_ready",
-    sessionId: verification.sessionId, // Return sessionId so frontend can track it
-    challengeExpiresAt, // So frontend knows when to restart
-    message: "Challenge signed. Scan the QR code with the Self app to complete verification.",
-    selfAppConfig: signResponse.selfApp || (
-      verification.selfAppConfig ? JSON.parse(verification.selfAppConfig) : null
-    ),
+    verified: false,
+    sessionId: verification.sessionId,
+    selfAppConfig: verification.selfAppConfig
+      ? JSON.parse(verification.selfAppConfig)
+      : null,
+    message: "QR ready. Scan with the Self app to complete verification.",
   });
 }
 
 async function handleCheck(agentId: string) {
-  const [verification, agent] = await Promise.all([
-    prisma.agentVerification.findUnique({ where: { agentId } }),
-    prisma.agent.findUnique({
-      where: { id: agentId },
-      select: { agentWalletAddress: true },
-    }),
-  ]);
+  const verification = await prisma.agentVerification.findUnique({ where: { agentId } });
 
   if (!verification) {
-    return NextResponse.json({
-      status: "not_started",
-      verified: false,
-    });
+    return NextResponse.json({ status: "not_started", verified: false });
   }
 
   if (verification.selfxyzVerified) {
@@ -370,210 +424,104 @@ async function handleCheck(agentId: string) {
     });
   }
 
-  // Poll SelfClaw for status
-  try {
-    const agentStatus = await checkAgentStatus(verification.publicKey);
-    console.log("[SelfClaw] check status for", verification.publicKey.slice(0, 20) + "...", "→", JSON.stringify(agentStatus));
+  if (!verification.sessionId) {
+    return NextResponse.json({
+      status: verification.status,
+      verified: false,
+      message: "No active verification session. Restart verification.",
+    });
+  }
 
-    if (agentStatus.verified) {
-      // Verification complete! Update database.
+  try {
+    let sessionToken: string | undefined;
+    if (verification.challenge) {
+      try {
+        const parsed = JSON.parse(verification.challenge) as { sessionToken?: string };
+        sessionToken = typeof parsed.sessionToken === "string" ? parsed.sessionToken : undefined;
+      } catch {
+        sessionToken = undefined;
+      }
+    }
+
+    const status = await checkSelfStatus(sessionToken || verification.sessionId);
+
+    if (status.status === "verified") {
       await prisma.agentVerification.update({
         where: { agentId },
         data: {
           status: "verified",
           selfxyzVerified: true,
-          humanId: agentStatus.humanId || null,
-          swarmUrl: agentStatus.swarm || null,
-          selfxyzRegisteredAt: agentStatus.selfxyz?.registeredAt
-            ? new Date(agentStatus.selfxyz.registeredAt)
-            : null,
+          humanId: status.agentId ? String(status.agentId) : null,
           verifiedAt: new Date(),
         },
       });
 
-      // Auto-register agent's EVM wallet with SelfClaw for Token & Trade
-      const walletAddr = agent?.agentWalletAddress;
-      const alreadyHasWallet =
-        (agentStatus as { walletAddress?: string }).walletAddress != null;
-      if (
-        walletAddr &&
-        !alreadyHasWallet &&
-        verification.encryptedPrivateKey
-      ) {
-        try {
-          const privateKeyHex = decryptPrivateKey(verification.encryptedPrivateKey);
-          const signed = await signAuthenticatedPayload(
-            verification.publicKey,
-            privateKeyHex
-          );
-          await createWalletSelfClaw(signed, walletAddr, "celo");
-          console.log("[SelfClaw] Auto-registered wallet:", walletAddr.slice(0, 10) + "...");
-        } catch (walletErr) {
-          console.warn("[SelfClaw] Auto create-wallet failed (non-fatal):", walletErr);
-        }
-      }
-
-      // Log the verification
       await prisma.activityLog.create({
         data: {
           agentId,
           type: "action",
-          message: `✅ Agent verified via SelfClaw (humanId: ${agentStatus.humanId || "unknown"})`,
-          metadata: JSON.stringify({
-            humanId: agentStatus.humanId,
-            swarm: agentStatus.swarm,
-          }),
+          message: `✅ Agent verified via Self Agent ID (agentId: ${status.agentId ?? "unknown"})`,
+          metadata: JSON.stringify({ agentId: status.agentId ?? null }),
         },
       });
 
       return NextResponse.json({
         status: "verified",
         verified: true,
-        humanId: agentStatus.humanId,
-        swarmUrl: agentStatus.swarm,
+        humanId: status.agentId ? String(status.agentId) : null,
         verifiedAt: new Date().toISOString(),
       });
     }
 
+    if (status.status === "expired") {
+      await prisma.agentVerification.update({
+        where: { agentId },
+        data: { status: "expired" },
+      });
+      return NextResponse.json({
+        status: "expired",
+        verified: false,
+        message: "Verification session expired. Please restart.",
+      });
+    }
+
     return NextResponse.json({
-      status: verification.status,
+      status: verification.status === "pending" ? "qr_ready" : verification.status,
       verified: false,
       selfAppConfig: verification.selfAppConfig
         ? JSON.parse(verification.selfAppConfig)
         : null,
       sessionId: verification.sessionId,
-      message: "Verification not yet complete. Scan the QR code with the Self app.",
-    });
-  } catch (error) {
-    // SelfClaw API may return 404 for not-yet-verified agents
-    console.warn("[SelfClaw] checkAgentStatus error (may be normal for pending agents):", 
-      error instanceof Error ? error.message : error);
-    return NextResponse.json({
-      status: verification.status,
-      verified: false,
-      selfAppConfig: verification.selfAppConfig
-        ? JSON.parse(verification.selfAppConfig)
-        : null,
-      sessionId: verification.sessionId,
-      createdAt: verification.createdAt,
       message: "Waiting for verification to complete...",
     });
+  } catch (err) {
+    console.warn("[Self Agent ID] status check failed:", err);
+    return NextResponse.json({
+      status: verification.status,
+      verified: false,
+      selfAppConfig: verification.selfAppConfig
+        ? JSON.parse(verification.selfAppConfig)
+        : null,
+      sessionId: verification.sessionId,
+      message: "Could not reach Self Agent ID. Please try again.",
+    });
   }
 }
 
-async function handleRestart(agent: { id: string; name: string }) {
-  // Delete existing verification and start fresh
-  await prisma.agentVerification.deleteMany({
-    where: { agentId: agent.id },
-  });
-
-  return handleStart(agent);
+async function handleRestart(
+  agent: {
+    id: string;
+    name: string;
+    agentWalletAddress: string | null;
+    owner: { walletAddress: string };
+  },
+  connectedWalletAddress?: string,
+  agentWalletAddressFromClient?: string
+) {
+  await prisma.agentVerification.deleteMany({ where: { agentId: agent.id } });
+  return handleStart(agent, connectedWalletAddress, agentWalletAddressFromClient);
 }
 
-/** Re-check SelfClaw API and update local DB if verified there. */
 async function handleSync(agentId: string) {
-  const verification = await prisma.agentVerification.findUnique({
-    where: { agentId },
-  });
-
-  if (!verification) {
-    return NextResponse.json({
-      status: "not_started",
-      verified: false,
-      synced: false,
-      message: "No verification record. Start verification first.",
-    });
-  }
-
-  if (verification.selfxyzVerified) {
-    return NextResponse.json({
-      status: "verified",
-      verified: true,
-      synced: true,
-      humanId: verification.humanId,
-      verifiedAt: verification.verifiedAt,
-    });
-  }
-
-  try {
-    const agentStatus = await checkAgentStatus(verification.publicKey);
-    console.log("[SelfClaw] sync check for", verification.publicKey.slice(0, 20) + "...", "→", agentStatus.verified);
-
-    if (agentStatus.verified) {
-      const agent = await prisma.agent.findUnique({
-        where: { id: agentId },
-        select: { agentWalletAddress: true },
-      });
-
-      await prisma.agentVerification.update({
-        where: { agentId },
-        data: {
-          status: "verified",
-          selfxyzVerified: true,
-          humanId: agentStatus.humanId || null,
-          swarmUrl: agentStatus.swarm || null,
-          selfxyzRegisteredAt: agentStatus.selfxyz?.registeredAt
-            ? new Date(agentStatus.selfxyz.registeredAt)
-            : null,
-          verifiedAt: new Date(),
-        },
-      });
-
-      // Auto-register wallet with SelfClaw if needed
-      const walletAddr = agent?.agentWalletAddress;
-      const alreadyHasWallet =
-        (agentStatus as { walletAddress?: string }).walletAddress != null;
-      if (walletAddr && !alreadyHasWallet && verification.encryptedPrivateKey) {
-        try {
-          const privateKeyHex = decryptPrivateKey(verification.encryptedPrivateKey);
-          const signed = await signAuthenticatedPayload(
-            verification.publicKey,
-            privateKeyHex
-          );
-          await createWalletSelfClaw(signed, walletAddr, "celo");
-          console.log("[SelfClaw] Auto-registered wallet after sync:", walletAddr.slice(0, 10) + "...");
-        } catch (walletErr) {
-          console.warn("[SelfClaw] Auto create-wallet after sync failed (non-fatal):", walletErr);
-        }
-      }
-
-      await prisma.activityLog.create({
-        data: {
-          agentId,
-          type: "action",
-          message: `✅ Verification synced from SelfClaw (humanId: ${agentStatus.humanId || "unknown"})`,
-          metadata: JSON.stringify({
-            humanId: agentStatus.humanId,
-            swarm: agentStatus.swarm,
-          }),
-        },
-      });
-
-      return NextResponse.json({
-        status: "verified",
-        verified: true,
-        synced: true,
-        humanId: agentStatus.humanId,
-        swarmUrl: agentStatus.swarm,
-        verifiedAt: new Date().toISOString(),
-        message: "Verification synced from SelfClaw.",
-      });
-    }
-
-    return NextResponse.json({
-      status: verification.status,
-      verified: false,
-      synced: true,
-      message: "SelfClaw reports not verified. Complete QR scan to verify.",
-    });
-  } catch (error) {
-    console.warn("[SelfClaw] sync checkAgentStatus error:", error instanceof Error ? error.message : error);
-    return NextResponse.json({
-      status: verification.status,
-      verified: false,
-      synced: false,
-      message: "Could not reach SelfClaw. Check your connection and try again.",
-    });
-  }
+  return handleCheck(agentId);
 }
-

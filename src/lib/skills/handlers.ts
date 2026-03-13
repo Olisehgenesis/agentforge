@@ -839,21 +839,27 @@ export async function executeAgentIdentity(
     const briefing = await getAgentIdentity(ctx.agentId);
 
     const p = briefing.pipeline;
+    const pipeItems = [
+      `Identity – ${p.identity ? "✅ verified" : "❌ not verified"}`,
+      `Wallet – ${p.wallet ? `✅ ${fmtAddr(briefing.walletAddress || "")}` : "❌ not initialized"}`,
+      `Gas – ${p.gas ? "✅ funded" : "❌ needs funds"}`,
+      `ERC-8004 – ${p.erc8004 ? "✅ on‑chain" : "❌ missing"}`,
+      `Token – ${p.token ? "✅ deployed" : "❌ not deployed"}`,
+      `Liquidity – ${p.liquidity ? "✅ pool exists" : "❌ no pool"}`,
+    ];
+
     const lines: string[] = [
       fmtHeader(`${briefing.name} — Agent Identity & Pipeline`, "🤖"),
       "",
-      fmtSection("Pipeline (SelfClaw)"),
-      fmtBullet(`Identity — ${p.identity ? "✓" : "—"} SelfClaw verified`),
-      fmtBullet(`Wallet — ${p.wallet ? "✓" : "—"} ${briefing.walletAddress ? fmtAddr(briefing.walletAddress, 10, 8) : "Not initialized"}`),
-      fmtBullet(`Gas — ${p.gas ? "✓" : "—"} Funded`),
-      fmtBullet(`ERC-8004 — ${p.erc8004 ? "✓" : "—"} On-chain identity`),
-      fmtBullet(`Token — ${p.token ? "✓" : "—"} Deployed`),
-      fmtBullet(`Liquidity — ${p.liquidity ? "✓" : "—"} SELFCLAW pool`),
+      `Here's where things stand with your agent on SelfClaw. Each step is
+shown below; a checkmark means it's complete.`,
+      "",
+      ...pipeItems.map((item, i) => `${i + 1}. ${item}`),
       "",
       fmtMeta(`Chain: Celo (chainId ${briefing.chainId})`),
       "",
       fmtSection("Next steps"),
-      ...briefing.nextSteps.map((s) => fmtBullet(s)),
+      ...briefing.nextSteps.map((s) => `${pipeItems.length + 1}. ${s}`),
     ];
 
     return {
@@ -1064,6 +1070,28 @@ export async function executeSelfClawRegisterWallet(
       };
     }
 
+    // if not verified, try to kick off verification flow
+    if (result.error && result.error.includes("SelfClaw verified")) {
+      const { startVerificationForAgent } = await import("@/lib/selfclaw/agentActions");
+      const startRes = await startVerificationForAgent(ctx.agentId);
+      let extra = "";
+      if (startRes.success) {
+        if (startRes.qrUrl) {
+          extra = `\n\nScan this QR code to verify:\n\n![QR Code](${startRes.qrUrl})`;
+        } else {
+          extra = "\n\nVerification started; open the dashboard Verify tab to scan the QR code.";
+        }
+      } else {
+        extra = `\n\nVerification could not be started: ${startRes.error}`;
+      }
+
+      return {
+        success: false,
+        error: result.error,
+        display: `Registration Failed: ${result.error ?? "Unknown error"}.${extra}`,
+      };
+    }
+
     return {
       success: false,
       error: result.error,
@@ -1075,6 +1103,36 @@ export async function executeSelfClawRegisterWallet(
       error: String(error),
       display: `Failed to register wallet: ${error}`,
     };
+  }
+}
+
+// ─── New skill: start SelfClaw verification via QR ─────────────────────
+export async function executeSelfClawStartVerification(
+  _params: string[],
+  ctx: SkillContext
+): Promise<SkillResult> {
+  const { startVerificationForAgent } = await import("@/lib/selfclaw/agentActions");
+  try {
+    const res = await startVerificationForAgent(ctx.agentId);
+    if (res.success) {
+      let display = [
+        fmtHeader("SelfClaw Verification Started", "🔍"),
+        "",
+      ];
+      if (res.qrUrl) {
+        display.push("Scan this QR code with the Self app to complete verification:");
+        display.push("");
+        display.push(`![QR Code](${res.qrUrl})`);
+        display.push("");
+        display.push(fmtMeta("The link has also been stored for later reference."));
+      } else {
+        display.push("Verification flow initiated. Please open the Verify tab on the dashboard to scan the QR code.");
+      }
+      return { success: true, display: display.join("\n") };
+    }
+    return { success: false, error: res.error, display: `Failed to start verification: ${res.error}` };
+  } catch (err) {
+    return { success: false, error: String(err), display: `Verification start error: ${err}` };
   }
 }
 
@@ -1280,6 +1338,38 @@ export async function executeGenerateQR(
   try {
     const dataUrl = await generateQRDataUrl(content);
 
+    // persist the QR code so we can serve it via short URL instead of large base64
+    let qrId: string | null = null;
+    let persistenceNote = "";
+    try {
+      const qr = await prisma.qRCode.create({
+        data: {
+          agentId: ctx.agentId,
+          content,
+          dataUrl,
+        },
+      });
+      qrId = qr.id;
+    } catch (err: any) {
+      // if the table doesn't exist (e.g. migration hasn't been run), log a warning
+      // and continue without persisting. catching by code covers Prisma known
+      // errors such as P2021 (relation does not exist).
+      if (
+        err?.code === "P2021" ||
+        /table .*QRCode/i.test(err?.message || "")
+      ) {
+        console.warn(
+          "QRCode table missing, skipping persistence. Run `prisma migrate deploy` or `prisma db push` to create it.",
+          err
+        );
+        persistenceNote =
+          "\n\n⚠️ QR persistence is disabled because the database table is missing. Run the appropriate Prisma migration (e.g. `npx prisma migrate deploy` or `npx prisma db push`) to enable short‑link storage.";
+      } else {
+        // rethrow unexpected errors so they can bubble up and be observed
+        throw err;
+      }
+    }
+
     if (ctx.agentId) {
       await prisma.activityLog.create({
         data: {
@@ -1289,27 +1379,52 @@ export async function executeGenerateQR(
           metadata: JSON.stringify({
             contentPreview: content.slice(0, 80) + (content.length > 80 ? "…" : ""),
             contentLength: content.length,
+            qrId,
             generatedAt: new Date().toISOString(),
           }),
         },
       });
     }
 
-    const display = [
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ||
+      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
+
+    const lines: string[] = [
       fmtHeader("QR Code Generated", "📱"),
       "",
-      fmtBullet(`Content encoded: ${content.length > 60 ? content.slice(0, 60) + "…" : content}`),
+      fmtBullet(`Content encoded: ${
+        content.length > 60 ? content.slice(0, 60) + "…" : content
+      }`),
       "",
-      "Scan the QR code below:",
-      "",
-      `![QR Code](${dataUrl})`,
-      "",
-      fmtMeta("QR generation logged to activity."),
-    ].join("\n");
+    ];
+
+    if (qrId) {
+      const qrLink = `${appUrl}/api/qr/${qrId}`;
+      lines.push(
+        "Scan the QR code below (or open link):",
+        "",
+        `![QR Code](${qrLink})`,
+        "",
+        fmtMeta(`Direct link: ${qrLink}`)
+      );
+    } else {
+      // fallback to raw image if persistence failed
+      lines.push(
+        "Scan the QR code below (copy/paste or open link):",
+        "",
+        `![QR Code](${dataUrl})`
+      );
+    }
+
+    if (typeof persistenceNote !== "undefined" && persistenceNote) {
+      lines.push("", persistenceNote);
+    }
+
+    const display = lines.join("\n");
 
     return {
       success: true,
-      data: { contentLength: content.length } as unknown as Record<string, unknown>,
+      data: { contentLength: content.length, qrId } as unknown as Record<string, unknown>,
       display,
     };
   } catch (error) {

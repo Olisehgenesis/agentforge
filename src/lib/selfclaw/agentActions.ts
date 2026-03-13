@@ -17,8 +17,9 @@ import {
   getSponsorshipInfo,
   requestSelfClawSponsorship,
   signAuthenticatedPayload,
+  startVerification,
 } from "./client";
-import { decryptPrivateKey } from "./keys";
+import { decryptPrivateKey, generateKeyPair, encryptPrivateKey } from "./keys";
 import {
   getAgentWalletClient,
   getPublicClient,
@@ -533,6 +534,90 @@ export async function saveSelfClawApiKeyForAgent(
       error: err instanceof Error ? err.message : "Failed to save key",
     };
   }
+}
+
+/** Register the agent's EVM wallet with SelfClaw (create-wallet). */
+export async function startVerificationForAgent(
+  agentId: string
+): Promise<{ success: boolean; qrUrl?: string; error?: string }> {
+  // replicate logic from /api/agents/[id]/verify route handleStart
+  const existing = await prisma.agentVerification.findUnique({
+    where: { agentId },
+  });
+
+  if (existing?.selfxyzVerified) {
+    return { success: false, error: "Agent already verified" };
+  }
+
+  const { publicKey, privateKeyHex } = await generateKeyPair();
+  const encryptedKey = encryptPrivateKey(privateKeyHex);
+
+  let selfClawResponse;
+  let agentNameForSelfClaw: string;
+  const agent = await prisma.agent.findUnique({ where: { id: agentId }, select: { name: true } });
+  agentNameForSelfClaw = agent?.name || agentId;
+
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      selfClawResponse = await startVerification({
+        agentPublicKey: publicKey,
+        agentName: agentNameForSelfClaw,
+      });
+      break;
+    } catch (apiError) {
+      const msg = apiError instanceof Error ? apiError.message : String(apiError);
+      if (attempt === 0 && msg.includes("Agent name already taken")) {
+        agentNameForSelfClaw = `${agentNameForSelfClaw}-${agentId.slice(0, 8)}`;
+        continue;
+      }
+      return { success: false, error: msg };
+    }
+  }
+
+  if (!selfClawResponse) {
+    return { success: false, error: "Failed to start verification" };
+  }
+
+  // store record
+  await prisma.agentVerification.upsert({
+    where: { agentId },
+    create: {
+      agentId,
+      publicKey,
+      encryptedPrivateKey: encryptPrivateKey(privateKeyHex),
+      status: "pending",
+      sessionId: selfClawResponse.sessionId,
+      challenge: selfClawResponse.challenge,
+      agentKeyHash: selfClawResponse.agentKeyHash,
+      agentName: agent?.name || null,
+      selfAppConfig: selfClawResponse.selfApp ? JSON.stringify(selfClawResponse.selfApp) : null,
+    },
+    update: {
+      publicKey,
+      encryptedPrivateKey: encryptPrivateKey(privateKeyHex),
+      status: "pending",
+      sessionId: selfClawResponse.sessionId,
+      challenge: selfClawResponse.challenge,
+      agentKeyHash: selfClawResponse.agentKeyHash,
+      agentName: agent?.name || null,
+      selfAppConfig: selfClawResponse.selfApp ? JSON.stringify(selfClawResponse.selfApp) : null,
+    },
+  });
+
+  // produce QR url from selfApp config if available
+  let qrUrl: string | undefined;
+  try {
+    if (selfClawResponse.selfApp && typeof selfClawResponse.selfApp === "object") {
+      // SelfApp config has `qrCode` string or url field
+      const cfg = selfClawResponse.selfApp as Record<string, any>;
+      if (cfg.qrCode) qrUrl = cfg.qrCode;
+      else if (cfg.dataUrl) qrUrl = cfg.dataUrl;
+    }
+  } catch {
+    // ignore
+  }
+
+  return { success: true, qrUrl };
 }
 
 /** Register the agent's EVM wallet with SelfClaw (create-wallet). */

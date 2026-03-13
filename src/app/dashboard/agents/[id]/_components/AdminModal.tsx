@@ -30,9 +30,6 @@ interface AdminModalProps {
   erc8004Error?: string | null;
   erc8004Deployed?: boolean | null;
   hasUserAddress?: boolean;
-  /** Sync existing ERC-8004 to SelfClaw (for agents registered before auto-sync). */
-  onSyncToSelfClaw?: () => void;
-  isSyncingToSelfClaw?: boolean;
   /** Update agent metadata on-chain (re-pin to IPFS + setAgentURI). */
   onUpdateMetadata?: () => void;
   isUpdatingMetadata?: boolean;
@@ -55,8 +52,6 @@ export function AdminModal({
   erc8004Error = null,
   erc8004Deployed = true,
   hasUserAddress = false,
-  onSyncToSelfClaw,
-  isSyncingToSelfClaw = false,
   onUpdateMetadata,
   isUpdatingMetadata = false,
   updateMetadataError = null,
@@ -87,6 +82,12 @@ export function AdminModal({
   const [webUrl, setWebUrl] = React.useState(agent.configuration?.webUrl || "");
   const [contactEmail, setContactEmail] = React.useState(agent.configuration?.contactEmail || "");
   const [updatingAdvanced, setUpdatingAdvanced] = React.useState(false);
+
+  // export / transfer state
+  const [exportLoading, setExportLoading] = React.useState(false);
+  const [exportError, setExportError] = React.useState<string | null>(null);
+  const [newOwnerAddress, setNewOwnerAddress] = React.useState("");
+  const [transferLoading, setTransferLoading] = React.useState(false);
 
   const telegramChannel = channelData?.channels?.find((c) => c.type === "telegram" && c.enabled);
 
@@ -174,6 +175,70 @@ export function AdminModal({
     }
   };
 
+  // export agent to JSON (includes private key)
+  const handleExport = async () => {
+    if (!agent.id || !agent.owner?.walletAddress) return;
+    setExportLoading(true);
+    setExportError(null);
+    try {
+      const res = await fetch(`/api/agents/${agent.id}/export`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          walletAddress: agent.owner.walletAddress,
+          confirmationName: agent.name,
+        }),
+      });
+      if (res.ok) {
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `${agent.name}-export.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+        toast.success("Agent exported");
+        onSocialsUpdated?.();
+        onClose();
+      } else {
+        const data = await res.json();
+        setExportError(data.error || "Export failed");
+      }
+    } catch (err: any) {
+      setExportError(err?.message || "Network error");
+    } finally {
+      setExportLoading(false);
+    }
+  };
+
+  // transfer ownership to another user by wallet address
+  const handleTransfer = async () => {
+    if (!agent.id || !agent.owner?.walletAddress || !newOwnerAddress) return;
+    setTransferLoading(true);
+    try {
+      const res = await fetch(`/api/agents/${agent.id}/transfer`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          walletAddress: agent.owner.walletAddress,
+          newOwnerWalletAddress: newOwnerAddress,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        toast.success("Ownership transferred");
+        onSocialsUpdated?.();
+        onClose();
+      } else {
+        toast.error(data.error || "Transfer failed");
+      }
+    } catch {
+      toast.error("Network error");
+    } finally {
+      setTransferLoading(false);
+    }
+  };
+
   return (
     <Modal open={open} onClose={onClose} className="max-w-md max-h-[90vh] overflow-auto">
       <div className="p-6 space-y-5">
@@ -257,6 +322,53 @@ export function AdminModal({
         >
           {updatingAdvanced ? <><Loader2 className="w-3 h-3 animate-spin mr-2" /> Saving...</> : "Save Advanced Settings"}
         </Button>
+
+        {/* export & transfer actions */}
+        <div className="border-t-2 border-forest/5 pt-4 space-y-2">
+          <h3 className="text-sm font-medium text-forest mb-2">Export & Ownership</h3>
+          <p className="text-xs text-forest-muted">
+            You’ll still need to transfer the ERC‑8004 NFT on‑chain to the new
+            wallet using your own gas. This section only updates the
+            Agent‑Haus record.
+          </p>
+          {agent.exported && agent.exportedAt && (
+            <p className="text-xs text-forest-muted">
+              Exported at {new Date(agent.exportedAt).toLocaleString()}
+            </p>
+          )}
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={exportLoading}
+              onClick={handleExport}
+            >
+              {exportLoading ? (
+                <><Loader2 className="w-3 h-3 animate-spin mr-1" /> Exporting...</>
+              ) : (
+                "Export agent"
+              )}
+            </Button>
+            <div className="flex-1">
+              <Input
+                placeholder="New owner wallet address"
+                value={newOwnerAddress}
+                onChange={(e) => setNewOwnerAddress(e.target.value)}
+                className="w-full"
+              />
+              <Button
+                size="sm"
+                variant="ghost"
+                className="mt-1 w-full"
+                disabled={transferLoading || !newOwnerAddress}
+                onClick={handleTransfer}
+              >
+                {transferLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : "Transfer Ownership"}
+              </Button>
+            </div>
+          </div>
+          {exportError && <p className="text-xs text-red-500">{exportError}</p>}
+        </div>
 
         <div className="border-t-2 border-forest/5 pt-4">
           <h3 className="text-sm font-medium text-forest mb-2 flex items-center gap-2">
@@ -441,7 +553,7 @@ export function AdminModal({
             Verification
           </h3>
           {verificationStatus?.verified ? (
-            <p className="text-sm text-forest-muted">Agent is verified with SelfClaw.</p>
+            <p className="text-sm text-forest-muted">Agent is verified with Self Protocol.</p>
           ) : (
             <Button variant="glow" size="sm" onClick={() => { onClose(); onOpenVerifyModal(); }}>
               Verify with Self
@@ -455,7 +567,7 @@ export function AdminModal({
               <Key className="w-4 h-4" />
               Agent Public Key
             </h3>
-            <p className="text-xs text-forest-muted mb-1">Ed25519 SPKI base64 (SelfClaw)</p>
+            <p className="text-xs text-forest-muted mb-1">Ed25519 SPKI base64 (Self Protocol)</p>
             <PublicKeyDisplay publicKey={(verificationStatus?.publicKey ?? agent.verification?.publicKey)!} />
           </div>
         )}
@@ -672,21 +784,6 @@ export function AdminModal({
                   )}
                 </>
               )}
-              {verificationStatus?.verified && onSyncToSelfClaw && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="w-full text-xs h-8"
-                  disabled={isSyncingToSelfClaw}
-                  onClick={onSyncToSelfClaw}
-                >
-                  {isSyncingToSelfClaw ? (
-                    <><Loader2 className="w-3 h-3 animate-spin mr-1" /> Syncing...</>
-                  ) : (
-                    "Sync to SelfClaw (for sponsorship)"
-                  )}
-                </Button>
-              )}
             </div>
           ) : (
             <div className="p-3 rounded-lg bg-amber-900/20 border border-amber-500/30">
@@ -695,7 +792,7 @@ export function AdminModal({
                 <span className="text-xs text-amber-400 font-medium">Not Registered On-Chain</span>
               </div>
               <p className="text-xs text-forest-muted mb-3">
-                Required for SelfClaw sponsorship. Register your agent on the ERC-8004 IdentityRegistry.
+                Required for advanced on-chain identity flows. Register your agent on the ERC-8004 IdentityRegistry.
               </p>
               {erc8004Error && (
                 <p className="text-xs text-red-400 mb-2">{erc8004Error}</p>

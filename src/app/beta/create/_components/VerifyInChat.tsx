@@ -2,6 +2,7 @@
 
 import React, { useEffect, useCallback, useState } from "react";
 import dynamic from "next/dynamic";
+import Image from "next/image";
 import { Loader2, CheckCircle, Smartphone } from "lucide-react";
 import { getUniversalLink } from "@selfxyz/core";
 import type { SelfApp } from "@selfxyz/qrcode";
@@ -31,8 +32,17 @@ export function VerifyInChat({
   const [verified, setVerified] = useState(false);
   const [checking, setChecking] = useState(false);
   const [deeplink, setDeeplink] = useState<string | null>(null);
+  const [qrUrl, setQrUrl] = useState<string | null>(null);
 
   useEffect(() => {
+    const cfg = selfAppConfig as Record<string, unknown>;
+    if (typeof cfg.qrUrl === "string") {
+      setQrUrl(cfg.qrUrl);
+    }
+    if (typeof cfg.deepLink === "string") {
+      setDeeplink(cfg.deepLink);
+      return;
+    }
     try {
       const link = getUniversalLink(selfAppConfig as unknown as SelfApp);
       setDeeplink(link);
@@ -83,7 +93,7 @@ export function VerifyInChat({
       <div className="mt-3 flex items-center gap-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 px-3 py-2">
         <CheckCircle className="w-5 h-5 text-emerald-400 shrink-0" />
         <span className="text-sm font-medium text-emerald-300">
-          {agentName} is verified with SelfClaw ✅
+          {agentName} is verified with Self Agent ID ✅
         </span>
       </div>
     );
@@ -92,16 +102,20 @@ export function VerifyInChat({
   return (
     <div className="mt-3 flex flex-col gap-3">
       <div className="rounded-xl overflow-hidden bg-white p-2 inline-flex">
-        <SelfQRcodeWrapper
-          selfApp={selfAppConfig as unknown as SelfApp}
-          onSuccess={handleQrSuccess}
-          onError={handleQrError}
-          type="websocket"
-          size={200}
-          darkMode={false}
-          showBorder
-          showStatusText
-        />
+        {qrUrl ? (
+          <Image src={qrUrl} alt="Self verification QR" width={200} height={200} unoptimized />
+        ) : (
+          <SelfQRcodeWrapper
+            selfApp={selfAppConfig as unknown as SelfApp}
+            onSuccess={handleQrSuccess}
+            onError={handleQrError}
+            type="websocket"
+            size={200}
+            darkMode={false}
+            showBorder
+            showStatusText
+          />
+        )}
       </div>
       <div className="flex flex-col gap-2">
         <div className="flex items-center gap-2 text-xs text-forest-muted">

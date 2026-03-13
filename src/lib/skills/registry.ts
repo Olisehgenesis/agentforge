@@ -46,14 +46,6 @@ import {
   executeGetGasFeeData,
   executeGetGovernanceProposals,
   executeGetProposalDetails,
-  executeAgentIdentity,
-  executeAgentTokens,
-  executeRequestSelfClawSponsorship,
-  executeSelfClawRegisterWallet,
-  executeSelfClawDeployToken,
-  executeSelfClawLogRevenue,
-  executeSelfClawLogCost,
-  executeSaveSelfClawApiKey,
   executeGenerateQR,
   executeListQRHistory,
   executeRequestFeedback,
@@ -97,14 +89,6 @@ for (const def of SKILL_DEFINITIONS) {
     case "get_gas_fee_data": registerHandler(def, executeGetGasFeeData); break;
     case "get_governance_proposals": registerHandler(def, executeGetGovernanceProposals); break;
     case "get_proposal_details": registerHandler(def, executeGetProposalDetails); break;
-    case "agent_identity": registerHandler(def, executeAgentIdentity); break;
-    case "agent_tokens": registerHandler(def, executeAgentTokens); break;
-    case "request_selfclaw_sponsorship": registerHandler(def, executeRequestSelfClawSponsorship); break;
-    case "selfclaw_register_wallet": registerHandler(def, executeSelfClawRegisterWallet); break;
-    case "selfclaw_deploy_token": registerHandler(def, executeSelfClawDeployToken); break;
-    case "selfclaw_log_revenue": registerHandler(def, executeSelfClawLogRevenue); break;
-    case "selfclaw_log_cost": registerHandler(def, executeSelfClawLogCost); break;
-    case "save_selfclaw_api_key": registerHandler(def, executeSaveSelfClawApiKey); break;
     case "generate_qr": registerHandler(def, executeGenerateQR); break;
     case "list_qr_history": registerHandler(def, executeListQRHistory); break;
     case "request_feedback": registerHandler(def, executeRequestFeedback); break;
@@ -135,17 +119,6 @@ export function getSkillsByCategory(category: SkillCategory): SkillDefinition[] 
  * Get skills for a specific agent template.
  */
 export function getSkillsForTemplate(templateId: string, disabledSkills: string[] = []): SkillDefinition[] {
-  const SELFCLAW_SKILLS = [
-    "agent_identity",
-    "agent_tokens",
-    "request_selfclaw_sponsorship",
-    "selfclaw_register_wallet",
-    "selfclaw_deploy_token",
-    "selfclaw_log_revenue",
-    "selfclaw_log_cost",
-    "save_selfclaw_api_key",
-  ];
-
   const FEEDBACK_SKILLS = ["request_feedback"];
 
   const CELO_MCP_SKILLS = [
@@ -166,11 +139,11 @@ export function getSkillsForTemplate(templateId: string, disabledSkills: string[
   const QR_SKILLS = ["generate_qr", "list_qr_history"];
 
   const TEMPLATE_SKILLS: Record<string, string[]> = {
-    payment: ["send_celo", "send_token", "check_balance", "query_rate", "check_token_price", "gas_price", ...CELO_MCP_SKILLS, ...SELFCLAW_SKILLS, ...QR_SKILLS, ...FEEDBACK_SKILLS],
-    trading: ["send_celo", "send_token", "check_balance", "query_rate", "check_token_price", "query_all_rates", "mento_quote", "mento_swap", "gas_price", "forex_analysis", "portfolio_status", "price_track", "price_trend", "price_predict", "price_alerts", "create_price_trigger", "create_time_trigger", ...CELO_MCP_SKILLS, ...SELFCLAW_SKILLS, ...QR_SKILLS, ...FEEDBACK_SKILLS],
-    forex: ["send_celo", "send_token", "check_balance", "query_rate", "check_token_price", "query_all_rates", "mento_quote", "mento_swap", "gas_price", "forex_analysis", "portfolio_status", "price_track", "price_trend", "price_predict", "price_alerts", "create_price_trigger", "create_time_trigger", ...CELO_MCP_SKILLS, ...SELFCLAW_SKILLS, ...QR_SKILLS, ...FEEDBACK_SKILLS],
-    social: ["send_celo", "send_token", "check_balance", ...CELO_MCP_SKILLS, ...SELFCLAW_SKILLS, ...QR_SKILLS, ...FEEDBACK_SKILLS],
-    custom: ["send_celo", "send_token", "check_balance", "query_rate", "check_token_price", "query_all_rates", "mento_quote", "gas_price", "create_price_trigger", "create_time_trigger", ...CELO_MCP_SKILLS, ...SELFCLAW_SKILLS, ...QR_SKILLS, ...FEEDBACK_SKILLS],
+    payment: ["send_celo", "send_token", "check_balance", "query_rate", "check_token_price", "gas_price", ...CELO_MCP_SKILLS, ...QR_SKILLS, ...FEEDBACK_SKILLS],
+    trading: ["send_celo", "send_token", "check_balance", "query_rate", "check_token_price", "query_all_rates", "mento_quote", "mento_swap", "gas_price", "forex_analysis", "portfolio_status", "price_track", "price_trend", "price_predict", "price_alerts", "create_price_trigger", "create_time_trigger", ...CELO_MCP_SKILLS, ...QR_SKILLS, ...FEEDBACK_SKILLS],
+    forex: ["send_celo", "send_token", "check_balance", "query_rate", "check_token_price", "query_all_rates", "mento_quote", "mento_swap", "gas_price", "forex_analysis", "portfolio_status", "price_track", "price_trend", "price_predict", "price_alerts", "create_price_trigger", "create_time_trigger", ...CELO_MCP_SKILLS, ...QR_SKILLS, ...FEEDBACK_SKILLS],
+    social: ["send_celo", "send_token", "check_balance", ...CELO_MCP_SKILLS, ...QR_SKILLS, ...FEEDBACK_SKILLS],
+    custom: ["send_celo", "send_token", "check_balance", "query_rate", "check_token_price", "query_all_rates", "mento_quote", "gas_price", "create_price_trigger", "create_time_trigger", ...CELO_MCP_SKILLS, ...QR_SKILLS, ...FEEDBACK_SKILLS],
   };
 
   const skillIds = TEMPLATE_SKILLS[templateId] || TEMPLATE_SKILLS.custom;
